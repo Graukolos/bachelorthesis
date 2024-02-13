@@ -1,5 +1,10 @@
 build:
     pdflatex thesis
+    pdflatex thesis
+    bibtex thesis
+    makeindex thesis
+    pdflatex thesis
+    pdflatex thesis
 
 open: build
     xdg-open thesis.pdf
@@ -11,6 +16,10 @@ clean:
     rm -f *.out
     rm -f *.pdf
     rm -f *.toc
+    rm -f *.bbl
+    rm -f *.blg
+    rm -f *.ilg
+    rm -f *.ind
     rm -f chapters/*.aux
     rm -f template/de/*.aux
     rm -f template/en/*.aux
