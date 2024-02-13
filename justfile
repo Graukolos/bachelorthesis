@@ -10,6 +10,7 @@ clean:
     rm -f *.log
     rm -f *.out
     rm -f *.pdf
+    rm -f *.toc
     rm -f chapters/*.aux
     rm -f template/de/*.aux
     rm -f template/en/*.aux
