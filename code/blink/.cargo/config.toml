@@ -1,0 +1,5 @@
+[target.aarch64-unknown-none]
+rustflags = ["-C", "link-args=--section-start=.init=0x80000 -Tcircle.ld"]
+
+[build]
+target = "aarch64-unknown-none"

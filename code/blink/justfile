@@ -1,0 +1,6 @@
+upload: build
+    sudo cp kernel8.img /srv/tftp
+
+build:
+    cargo b -r
+    cargo objcopy --release -- -O binary kernel8.img
