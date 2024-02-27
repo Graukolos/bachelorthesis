@@ -1,3 +1,6 @@
 [submodule "code/circle-rs/circle-sys/circle"]
 	path = code/circle-rs/circle-sys/circle
 	url = https://github.com/rsta2/circle.git
+[submodule "code/ic-mu"]
+	path = code/ic-mu
+	url = https://github.com/Graukolos/ic-mu.git
