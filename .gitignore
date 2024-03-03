@@ -8,3 +8,7 @@
 *.blg
 *.ilg
 *.ind
+*.fls
+*.gz
+*.fdb_latexmk
+svg-inkscape

@@ -1,5 +1,5 @@
 build:
-    pdflatex thesis
+    pdflatex --shell-escape thesis
     pdflatex thesis
     bibtex thesis
     makeindex thesis
@@ -20,6 +20,10 @@ clean:
     rm -f *.blg
     rm -f *.ilg
     rm -f *.ind
+    rm -f *.fls
+    rm -f *.gz
+    rm -f *.fdb_latexmk
     rm -f chapters/*.aux
     rm -f template/de/*.aux
     rm -f template/en/*.aux
+    rm -rf svg-inkscape

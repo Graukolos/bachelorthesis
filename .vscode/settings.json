@@ -1,0 +1,7 @@
+{
+    "rust-analyzer.linkedProjects": [
+        "code/circle-rs/Cargo.toml",
+        "code/blink/Cargo.toml",
+        "code/ic-mu/Cargo.toml"
+    ]
+}
