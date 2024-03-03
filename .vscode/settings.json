@@ -3,5 +3,10 @@
         "code/circle-rs/Cargo.toml",
         "code/blink/Cargo.toml",
         "code/ic-mu/Cargo.toml"
+    ],
+    "Workspace_Formatter.excludePattern": [
+        "**/target",
+        "code/circle-rs/circle-sys/circle",
+        "code/ic-mu"
     ]
 }
