@@ -8,13 +8,26 @@ FPGA expensive, slow and takes long to develop
 RaspberryPi cheap and has hardware acceleration for SPI and PWM
 Rust as new language competitive to C?
 Bare-metal still necessary with modern Microprocessors and Real-time Linux?
+What if we want to implement something different from linear control?
 
 Closed loop control not a new problem
 better results the higher the control frequency
 Can we build a fast control loop while staying on Linux?
 \end{comment}
 
+
+
 \section{Closed Loop Control}
+Closed loop control has been implemented in many different ways,
+from mechanical structures like a centrifugal governor to specialized integrated circuits.
+In this paper we will implement closed loop control of a brushless DC motor on a Raspberry Pi 4.
+This effort is part of the larger goal of building a successor to CARL\cite{CARL} at RRLAB.
+There are a variety of different ways the motor controllers could be implemented, the old CARL used FPGAs for example.
+We chose to use a Raspberry Pi for the following reasons:
+\begin{itemize}
+    \item Cost when compared to a FPGA
+    \item 
+\end{itemize}
 
 \section{Advantages of General Purpose Processors}
 
