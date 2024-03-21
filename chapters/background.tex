@@ -19,26 +19,44 @@ Kurse aus meiner Vertiefung:
 - 
 \end{comment}
 
-\section{OS-related stuff}
-\subsection{Real time scheduling}
+\section{Bare-Metal vs Operating System}
+\label{sec:background:bm_vs_os}
 
-\section{Rust related stuff}
+% what does an os do? what advantages has it, what disadvantages
+
+\subsection{Real time scheduling}
+\label{sec:background:bm_vs_os:rtos}
+
+\subsection{PREEMP-RT}
+\label{sec:background:bm_vs_os:preempt_rt}
+
+\subsection{Circle}
+\label{sec:background:bm_vs_os:circle}
+
+\section{Rust Prerequisites}
+\label{sec:background:rust}
+
 \subsection{Rust - A modern systems programming language}
+\label{sec:background:rust:}
 
 \subsection{Memory managment by ownership}
+\label{sec:background:rust:ownership}
 
 \subsection{Unsafe Rust}
+\label{sec:background:rust:unsafe}
 
 \subsection{Rust in the embedded world}
+\label{sec:background:rust:embedded}
 
-\subsection{Typestate programming }
+\subsection{Typestate programming}
+\label{sec:background:rust:typestate}
 
-% alternateive Idee Hardware details
-\section{Hardware Prerequisites}
+\section{Hardware Details}
+\label{sec:background:hardware}
 
-\newpage
 \subsection{SPI}
-\label{sec:background:spi}
+\label{sec:background:hardware:spi}
+
 Next we take a look at the SPI protocol.
 We will later use this to establish a communication link between the position encoder and the Raspberry Pi.
 The name SPI stands for "Serial Peripheral Interface".
@@ -81,4 +99,4 @@ The relation of CPOL and CPHA to the 4 Modes can be seen in table \ref{tab:spi_m
 \end{table}
 
 \subsection{iC-MU}
-%
+\label{sec:background:hardware:ic-mu}
