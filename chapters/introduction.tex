@@ -18,17 +18,37 @@ Can we build a fast control loop while staying on Linux?
 
 
 \section{Closed Loop Control}
-Closed loop control has been implemented in many different ways,
+Whenever you have a stateful system there are two ways of controlling it.
+In Open Loop Control only the should-be signal influences the output value.
+In Closed Loop or Feedback Control the output is composed of the should-be value and a feedback signal that measures the actual state of the system.
+In many real-world applications Closed Loop Control is used for its ability to quickly reach a new target value, while keeping oscillation and overshoot to a minimum.
+
+For these real-world applications it has been implemented in many different ways,
 from mechanical structures like a centrifugal governor to specialized integrated circuits.
+
 In this paper we will implement closed loop control of a brushless DC motor on a Raspberry Pi 4.
 This effort is part of the larger goal of building a successor to CARL\cite{CARL} at RRLAB.
-There are a variety of different ways the motor controllers could be implemented, the old CARL used FPGAs for example.
-We chose to use a Raspberry Pi for the following reasons:
+There are a variety of different ways the motor controllers could be implemented, the old CARL for example used FPGAs.
+We chose to use a Raspberry Pi, because it provides us with some advantages and exciting opportunities.
+
+\section{Advantages of Closed Loop Control on General Purpose Processors}
+When compared to the FPGA approach used in CARL Single Board Computers (SBCs) such as a Raspberry Pi are cheaper and easier to program.
+This comes at a cost however, typically FPGAs are faster at high speed IO operations, which is an important port of a Closed Loop Controller.
+Fortunately the Raspberry Pi 4 has special purpose hardware for SPI and PWM IO which should help us alleviate this disadvantage.
+
+When compared to ready built PID ICs a Raspberry Pi is more expensive, consumes more power and must be programmed vs only settings a few variables.
+But it comes with only major upside for a research project such as ours:
+It is not bound to a traditional PID controller. If the need arises to use a different control scheme or compute additional tasks in parallel, the Raspberry Pi can!
+
+In addition using a Raspberry Pi provides an opportunity to use the Rust programming language and validate some of its claims.
+
+\section{A new programming language for embedded systems?}
+The embedded world is dominated by C and C++.
+These languages come with a few well known downsides however:
 \begin{itemize}
-    \item Cost when compared to a FPGA
-    \item 
+    \item race conditions are easy to create
+    \item uninitialized memory can accidentally be read
+    \item management of resources is manual, which typically leads to memory leaks 
 \end{itemize}
 
-\section{Advantages of General Purpose Processors}
-
-\section{}
+Rust is a relatively new systems programming language that claims to be well suited to the embedded space while avoiding the aforementioned problems.
