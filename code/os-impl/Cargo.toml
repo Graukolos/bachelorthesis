@@ -1,0 +1,10 @@
+[package]
+name = "os-impl"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ic-mu = "0.1.0"
+embedded-hal = "1.0.0"
+rppal = { version = "0.17.1", features = ["hal"] }
+pid = "4.0.0"

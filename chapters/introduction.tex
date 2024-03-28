@@ -47,23 +47,37 @@ In both of them the usage of C++ and especially C have dominated that of any oth
 In the last 5-10 years however several new languages have come up,
 that claim to be able to replace C and C++ for various parts of the systems programming field.
 \begin{itemize}
-    \item Go by Google has seen wide adoption in high-performance network related applications, due to its focus on simplicity while maintaining reasonably high performance.
-    \item Zig targets a direct replacement of C for low level systems such as writing operating system kernels or embedded applications. In order to easily integrate into existing C projects the zig compiler can compile both C and Zig files.
-    \item Carbon directly targets replacing C++ by being able to include C++ files and compiling to the same ABI.
-    \item Rust, which was originally developed by Graydon Hoare at Mozilla
+    \item Go by Google has seen wide adoption in high-performance network related applications, due to its focus on simplicity while maintaining reasonably high performance.\cite{Go}
+    \item Zig targets a direct replacement of C for low level systems such as writing operating system kernels or embedded applications. In order to easily integrate into existing C projects the zig compiler can compile both C and Zig files.\cite{Zig}
+    \item Carbon directly targets replacing C++ by being able to include C++ files and compiling to the same ABI.\cite{Carbon}
+    \item Rust, which was originally developed by Graydon Hoare at Mozilla.\cite{TheRustProgrammingLanguage}
 \end{itemize}
 
 The controller implementation in this thesis will be written in Rust,
 as that gives us the opportunity to validate some of Rusts claims on its suitability for embedded programs and interoperability with existing SDKs.
 
-Rust had its first stable release in 2015 
+To cite the exact quotes we will be looking at in detail:\\
+"Interoperability - Integrate Rust into your existing C codebase or leverage an existing SDK to write a Rust application."\\
+"Portability - Write a library or driver once, and use it with a variety of systems, ranging from very small microcontrollers to powerful SBCs."\\
+\cite{RustEmbeddedSite}
 
+In order to do that we will implement the controller twice.
+Once running bare-metal while using the Circle library for interacting with the hardware,
+and second while running on a standard linux kernel on the Raspberry Pi.
+This allows us to compare the effort of writing an embedded application in Rust to the effort
+when writing the same application on top of a general purpose operating system.
+The Circle library is a C/C++ SDK for all Raspberry Pis which will serve as our test bed for exploring Rust's C interoperability.
 
-These languages come with a few well known downsides however:
+Since we will be taking a detailed look at some of Rusts features let us provide some general information on the language.
+
+Rust was designed to be a similarly performant alternative to C and C++ while eliminating some of their most common pitfalls:\\
 \begin{itemize}
-    \item race conditions are easy to create
-    \item uninitialized memory can accidentally be read
-    \item management of resources is manual, which typically leads to memory leaks 
+    \item buffer overflows
+    \item out of bounds read
+    \item race conditions
+    \item reading uninitialized memory
+    \item dereferencing null pointers
 \end{itemize}
 
-Rust is a relatively new systems programming language that claims to be well suited to the embedded space while avoiding the aforementioned problems.
+It does this through a combination of approaches where the most important ones are RAII through an ownership system and a lifetimes for references instead of pointers.
+We will cover these in more detail in the background (\ref{background}) chapter.

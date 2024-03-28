@@ -1,10 +1,10 @@
 build:
     pdflatex --shell-escape thesis
-    pdflatex thesis
+    pdflatex --shell-escape thesis
     bibtex thesis
     makeindex thesis
-    pdflatex thesis
-    pdflatex thesis
+    pdflatex --shell-escape thesis
+    pdflatex --shell-escape thesis
 
 open: build
     xdg-open thesis.pdf
