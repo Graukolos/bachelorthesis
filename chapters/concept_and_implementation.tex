@@ -2,21 +2,56 @@
 % Here the approach you and your supervisor decided on should be explained.
 % Usually, first on a higher level and then in detail including implementation details.
 % So the question that is answered is: How do you try to solve the problem at hand?
+
+\begin{comment}
+    Super loop:
+    1. Fetch current control value and feedback from system
+    2. Calculate new output value accordingly
+    3. Adjust output (PWM)
+    
+    PD or PDI Control?
+    
+    
+    Bare-metal vs
+    Preempt-RT vs
+    linux
+\end{comment}
+
 \chapter{Concept and Implementation}
 \label{chap:concept_and_implementation}
 
-\begin{comment}
-Super loop:
-1. Fetch current control value and feedback from system
-2. Calculate new output value accordingly
-3. Adjust output (PWM)
+Now for the actual implementation:\\
+We will first consider the general control flow of our application, both for the bare-metal and OS-based version.
+For the Linux version specifically we will then compare multiple approaches to optimize the OS both in terms of average performance as well as worst case latencies.
+These different versions will later be compared to the bare-metal version in the \nameref{chap:experiments} chapter.
+The bare-metal version demands a more detailed look, as it is the focus of this thesis.
+As it is needed for any other step we will first look at the bootup process on the Raspberry Pi and how to produce a Rust binary that successfully boots.
+From that we will continue with how the bindings to Circle were created and how and why an abstraction on top of it was written to make the underlying C code adhere to Rusts safety guarantees.
 
-PD or PDI Control?
+\section{The Control Loop}
+\label{sec:concept_and_implementation:control_flow}
 
+The general control flow follows the principle of a super loop.
+On startup we initialize the communication hardware and from there on it's just a fetch, compute, update loop.
+In the fetch step we get the current position of the actuator as well as the control value and the time passed since the last cycle.
+The position is fetched through SPI from the IC-MU and the duration since the last cycle from a CPU timer.
+For increased reproducability we will mock an external control value input by replacing it with a fixed signal based on timers on the Raspberry Pi.
+In the compute step we apply those values to our PID-controller formula in order to get the new output value.
+Last, in the update step, we update the duty cycle of the output PWM signal based on the just computed output value.
 
-Bare-metal vs
-Preempt-RT vs
-linux
-\end{comment}
+\section{Linux based version}
+\label{sec:concept_and_implementation:linux}
 
-\section{The setup}
+\subsection{Approaches to minimize jitter}
+\label{sec:concept_and_implementation:linux:approaches}
+
+\begin{itemize}
+    \item Default settings and hope
+    \item PREEMP-RT + higher priority
+    \item dedicated core
+\end{itemize}
+
+\section{Bare-Metal}
+\label{sec:concept_and_implementation:bare_metal}
+
+\subsection{rppal}
