@@ -4,10 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-ic-mu = "0.1.0"
 embedded-hal = "1.0.0"
 rppal = { version = "0.17.1", features = ["hal"] }
-pid = "4.0.0"
 log = "0.4.21"
 env_logger = "0.11.3"
 pid-ctrl = "0.1.4"
+fugit = "0.3.7"

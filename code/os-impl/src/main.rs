@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use embedded_hal::spi::SpiBus;
-use pid::Pid;
+use pid_ctrl::PidCtrl;
 use rppal::{
     pwm::{Channel, Polarity, Pwm},
     spi::{Bus, Mode, SlaveSelect, Spi},
@@ -19,10 +19,8 @@ fn main() {
     let mut spi = Spi::new(Bus::Spi0, SlaveSelect::Ss0, 80_000, Mode::Mode0).unwrap();
     let pwm = Pwm::with_frequency(Channel::Pwm0, 1_000., 0.5, Polarity::Normal, false).unwrap();
 
-    let mut pid = Pid::new(10., 100.);
-    pid.p(10., 100.);
-    pid.i(1., 100.);
-    pid.d(5., 100.);
+    let mut pid = PidCtrl::new_with_pid(10., 1., 5.);
+    pid.init(10., 10.);
 
     let start = Instant::now();
     let mut iteration_start = Instant::now();
@@ -43,8 +41,10 @@ fn main() {
         log::debug!("current setpoint: {}", setpoint);
 
         // compute step: calculate new output value
-        pid.setpoint(setpoint);
-        let output = pid.next_control_output(position).output;
+        pid.setpoint = setpoint;
+        let output = pid
+            .step(pid_ctrl::PidIn::new(position, iteration_time.as_secs_f64()))
+            .out;
 
         // update step: output the new value over PWM
         pwm.set_duty_cycle(output).unwrap();
