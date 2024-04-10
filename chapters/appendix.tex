@@ -1,2 +1,45 @@
 \chapter{Appendix}
 \label{chap:appendix}
+
+\section{Setting up a Raspberry Pi 4 with a realtime kernel}
+\label{sec:appendix:realtime}
+This is a short guide on how to reproduce the realtime kernel that we used for all realtime experiments.
+
+To do this you need a Raspberry Pi 4 with a 64Bit Raspberry Pi OS installed (doesn't matter if it's the full desktop version or just a TTY one).
+
+Step 1 is to get all the required build dependencies.
+\begin{lstlisting}[language=bash, breaklines]
+    sudo apt update && sudo apt install build-essential flex bison libssl-dev bc
+\end{lstlisting}
+
+Step 2 is to get the kernel sources and patch them with the correct PREEMPT-RT patchset.
+\begin{lstlisting}[language=bash, breaklines]
+    wget https://github.com/raspberrypi/linux/archive/refs/tags/stable_20240124.tar.gz
+    wget https://cdn.kernel.org/pub/linux/kernel/projects/rt/6.1/older/patch-6.1.73-rt22.patch.xz
+    tar -xf stable_20240124.tar.gz
+    cd linux-stable_20240124
+    xzcat ../patch-6.1.73-rt22.patch.xz | patch -p1
+\end{lstlisting}
+
+Step 3 is to generate the kernel config, we use the provided default config for the Raspberry Pi 4 and only set the PREEMPT\_RT config value to enable full kernel preemption.
+\begin{lstlisting}[language=bash, breaklines]
+    make bcm2711_defconfig
+    ./scripts/config -e PREEMPT_RT
+    make olddefconfig
+\end{lstlisting}
+
+Step 4 is to actually compile the kernel, this takes about 3 hours on all 4 cores of the Raspberry Pi 4.
+\begin{lstlisting}[language=bash, breaklines]
+    make -j4 Image.gz modules dtbs
+\end{lstlisting}
+
+Step 5 is to actually install the files.
+\begin{lstlisting}[language=bash, breaklines]
+    sudo make modules_install
+    sudo cp arch/arm64/boot/dts/broadcom/*.dtb /boot/firmware/
+    sudo cp arch/arm64/boot/dts/overlays/*.dtb* /boot/firmware/overlays/
+    sudo cp arch/arm64/boot/dts/overlays/README /boot/firmware/overlays/
+    sudo cp arch/arm64/boot/Image.gz /boot/firmware/kernel8.img
+\end{lstlisting}
+
+At the end simply reboot to load the new kernel.
