@@ -1,14 +1,12 @@
-use std::time::Instant;
-
 use embedded_hal::spi::SpiBus;
 use pid_ctrl::PidCtrl;
 use rppal::{
     pwm::{Channel, Polarity, Pwm},
     spi::{Bus, Mode, SlaveSelect, Spi},
 };
+use std::time::Instant;
 
 // TODO:
-// tune kp, ki and kd
 // perform startup checks on ic-mu
 // add multiple setpoint curves
 
