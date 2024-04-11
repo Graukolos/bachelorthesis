@@ -1,3 +1,5 @@
+use clap::Parser;
+use clap::Subcommand;
 use embedded_hal::spi::SpiBus;
 use pid_ctrl::PidCtrl;
 use rppal::{
@@ -5,6 +7,7 @@ use rppal::{
     spi::{Bus, Mode, SlaveSelect, Spi},
 };
 use std::time::Instant;
+use std::time::Duration;
 
 // TODO:
 // perform startup checks on ic-mu
@@ -13,8 +16,7 @@ use std::time::Instant;
 fn main() {
     env_logger::init();
 
-    let args = std::env::args();
-    let benchmark = 
+    let args = Args::parse();
 
     // setup of communication
     let mut spi = Spi::new(Bus::Spi0, SlaveSelect::Ss0, 80_000, Mode::Mode0).unwrap();
@@ -23,32 +25,50 @@ fn main() {
     let mut pid = PidCtrl::new_with_pid(10., 1., 5.);
     pid.init(10., 10.);
 
-    let start = Instant::now();
     let mut iteration_start = Instant::now();
 
-    loop {
-        // fetch step: calculate elapsed time, get new position and setpoint
-        let iteration_time = iteration_start.elapsed();
-        log::debug!(
-            "iteration_time in milliseconds: {}",
-            iteration_time.as_millis()
-        );
-        iteration_start = Instant::now();
+    match args.command {
+        Commands::Run => {
+            loop {
+                // fetch step: calculate elapsed time, get new position and setpoint
+                let iteration_time = iteration_start.elapsed();
+                iteration_start = Instant::now();
 
-        let position = get_position(&mut spi);
-        let setpoint = get_setpoint(&start);
+                let position = get_position(&mut spi);
+                let setpoint = get_setpoint();
 
-        log::debug!("current position: {}", position);
-        log::debug!("current setpoint: {}", setpoint);
+                // compute step: calculate new output value
+                pid.setpoint = setpoint;
+                let output = pid
+                    .step(pid_ctrl::PidIn::new(position, iteration_time.as_secs_f64()))
+                    .out;
 
-        // compute step: calculate new output value
-        pid.setpoint = setpoint;
-        let output = pid
-            .step(pid_ctrl::PidIn::new(position, iteration_time.as_secs_f64()))
-            .out;
+                // update step: output the new value over PWM
+                pwm.set_duty_cycle(output).unwrap();
+            }
+        }
+        Commands::Benchmark { iterations } => {
+            let mut iteration_times = Vec::with_capacity(iterations as usize);
+            for _ in 0..iterations {
+                // fetch step: calculate elapsed time, get new position and setpoint
+                let iteration_time = iteration_start.elapsed();
+                iteration_times.push(iteration_time);
+                iteration_start = Instant::now();
 
-        // update step: output the new value over PWM
-        pwm.set_duty_cycle(output).unwrap();
+                let position = get_position(&mut spi);
+
+                // compute step: calculate new output value
+                let output = pid
+                    .step(pid_ctrl::PidIn::new(position, iteration_time.as_secs_f64()))
+                    .out;
+
+                // update step: output the new value over PWM
+                pwm.set_duty_cycle(output).unwrap();
+            }
+
+            analyze_iteration_times(iteration_times);
+        }
+        Commands::Debug => {}
     }
 }
 
@@ -62,6 +82,36 @@ fn get_position<Spi: SpiBus>(spi: &mut Spi) -> f64 {
     position as f64
 }
 
-fn get_setpoint(start: &Instant) -> f64 {
-    start.elapsed().as_secs_f64() % 100.
+fn get_setpoint() -> f64 {
+    0.
+}
+
+fn analyze_iteration_times(iteration_times: Vec<Duration>) {
+    let min = iteration_times.iter().min();
+    let max = iteration_times.iter().max();
+    let sum: Duration = iteration_times.iter().sum();
+    let count = iteration_times.len();
+    let avg = sum / count.try_into().unwrap();
+    
+    dbg!(min);
+    dbg!(max);
+    dbg!(sum);
+    dbg!(count);
+    dbg!(avg);
+}
+
+#[derive(Parser)]
+struct Args {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    Run,
+    Benchmark {
+        #[arg(default_value_t = 1_000_000)]
+        iterations: u64,
+    },
+    Debug,
 }

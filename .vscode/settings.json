@@ -3,11 +3,7 @@
         "code/circle-rs/Cargo.toml",
         "code/blink/Cargo.toml",
         "code/ic-mu/Cargo.toml",
-        "code/os-impl/Cargo.toml"
-    ],
-    "Workspace_Formatter.excludePattern": [
-        "**/target",
-        "code/circle-rs/circle-sys/circle",
-        "code/ic-mu"
+        "code/os-impl/Cargo.toml",
+        "code/os-isolated-impl/Cargo.toml"
     ]
 }
