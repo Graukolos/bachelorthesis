@@ -1,4 +1,5 @@
 [target.aarch64-unknown-none]
+linker = "aarch64-none-elf-ld"
 rustflags = ["-C", "link-args=--section-start=.init=0x80000 -Tcircle.ld"]
 
 [build]

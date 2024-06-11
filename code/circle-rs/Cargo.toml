@@ -1,8 +1,0 @@
-workspace = { members = ["circle-sys"] }
-[package]
-name = "circle-rs"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-circle-sys = { path = "circle-sys" }

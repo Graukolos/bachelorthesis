@@ -4,3 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+pid-ctrl = "0.1.4"
+
+[build-dependencies]
+bindgen = "0.69.4"
+
+[profile.release]
+lto = true
+debug = true

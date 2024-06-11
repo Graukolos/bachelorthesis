@@ -1,0 +1,5 @@
+upload:
+    cargo build --release
+    cargo objcopy --release -- -O binary kernel8-rpi4.img
+    cp kernel8-rpi4.img /run/media/graukolos/3568-9C44/
+    sync

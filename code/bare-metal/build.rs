@@ -14,9 +14,6 @@ fn main() {
 
     println!("cargo:rustc-link-lib=circle");
 
-    //println!("cargo:rustc-link-arg=--section-start=.init=0x80000");
-    //println!("cargo:rustc-link-arg=-Tcircle.ld");
-
     let bindings = Builder::default()
         .header("wrapper.hpp")
         .use_core()
@@ -24,6 +21,7 @@ fn main() {
             "-I{}",
             manifest_dir.join("circle/include").display()
         ))
+        .vtable_generation(true)
         .default_macro_constant_type(MacroTypeVariation::Signed)
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .generate()
