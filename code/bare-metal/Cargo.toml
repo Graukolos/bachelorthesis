@@ -12,3 +12,7 @@ bindgen = "0.69.4"
 [profile.release]
 lto = true
 debug = true
+
+[features]
+default = [ "measure" ]
+measure = []

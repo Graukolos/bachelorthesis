@@ -1,5 +1,6 @@
 #include "assert.h"
 #include "circle/actled.h"
+#include "circle/alloc.h"
 #include "circle/devicenameservice.h"
 #include "circle/exceptionhandler.h"
 #include "circle/gpiopin.h"
