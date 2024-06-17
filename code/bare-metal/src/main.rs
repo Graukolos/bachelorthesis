@@ -2,22 +2,24 @@
 #![no_main]
 
 extern crate alloc;
-use alloc::format;
+use alloc::{format, string::String};
 use core::{
     alloc::GlobalAlloc,
-    ffi::{c_int, c_uint, c_void, CStr},
+    ffi::{c_int, c_uint, c_void},
     panic::PanicInfo,
+    ptr::null_mut,
 };
-use ffi::PWM_CHANNEL1;
 use pid_ctrl::PidCtrl;
 
 mod ffi;
 
+// just reboot on rust panic
 #[panic_handler]
 unsafe fn panic_handler(_panic_info: &PanicInfo) -> ! {
-    loop {}
+    ffi::reboot()
 }
 
+// use circle's allocator implementation for rust
 struct CircleAllocator;
 unsafe impl GlobalAlloc for CircleAllocator {
     unsafe fn alloc(&self, layout: core::alloc::Layout) -> *mut u8 {
@@ -32,19 +34,20 @@ unsafe impl GlobalAlloc for CircleAllocator {
 #[global_allocator]
 static ALLOCATOR: CircleAllocator = CircleAllocator;
 
-const FROM_KERNEL: &CStr = c"kernel";
-
 #[no_mangle]
 pub unsafe extern "C" fn main() -> c_int {
     let mut act_led = ffi::CActLED::new(false);
     let options = ffi::CKernelOptions::new();
-    let mut interrupt_system = ffi::CInterruptSystem::new();
     let mut device_name_service = ffi::CDeviceNameService::new();
+    let mut screen = ffi::CScreenDevice::new(options.GetWidth(), options.GetHeight(), false, 0);
+    let mut interrupt_system = ffi::CInterruptSystem::new();
     let mut serial = ffi::CSerialDevice::new(&mut interrupt_system, false, 0);
     let _exception_handler = ffi::CExceptionHandler::new();
-    let mut screen = ffi::CScreenDevice::new(options.GetWidth(), options.GetHeight(), false, 0);
     let mut timer = ffi::CTimer::new(&mut interrupt_system);
     let mut logger = ffi::CLogger::new(options.GetLogLevel(), &mut timer, true);
+    let mut usb_hci =
+        ffi::CXHCIDevice::new(&mut interrupt_system, &mut timer, false, 0, null_mut());
+    let mut filesystem = ffi::CFATFileSystem::new();
 
     screen.Initialize();
     serial.Initialize(115200, 8, 1, ffi::CSerialDevice_TParity_ParityNone);
@@ -55,6 +58,7 @@ pub unsafe extern "C" fn main() -> c_int {
     logger.Initialize(log_device);
     interrupt_system.Initialize();
     timer.Initialize();
+    ((*usb_hci._base._base.vtable_).CUSBController_Initialize)(&mut usb_hci._base._base, true);
 
     const SPI_FREQ: c_uint = 115200;
     const CPOL: c_uint = 0;
@@ -83,11 +87,11 @@ pub unsafe extern "C" fn main() -> c_int {
 
     let mut pid = PidCtrl::new_with_pid(10., 1., 5.);
 
-    let mut iteration_start;
-
-    act_led.Blink(3, 500, 200);
+    act_led.Blink(5, 500, 300);
 
     pwm.Start();
+
+    let mut iteration_start = ffi::CTimer::GetClockTicks64();
 
     #[cfg(feature = "measure")]
     {
@@ -96,64 +100,81 @@ pub unsafe extern "C" fn main() -> c_int {
             let setpoint = get_setpoint();
 
             pid.setpoint = setpoint;
-            let output = pid.step(pid_ctrl::PidIn::new(position, 0.)).out;
-    
+            let time = ffi::CTimer::GetClockTicks64() - iteration_start;
+            let output = pid
+                .step(pid_ctrl::PidIn::new(
+                    position,
+                    f64::from(time as u32) / 1_000_000.,
+                ))
+                .out;
+            iteration_start = ffi::CTimer::GetClockTicks64();
+
             pwm.Write(
-                PWM_CHANNEL1 as c_uint,
+                ffi::PWM_CHANNEL1 as c_uint,
                 ((output * PWM_RANGE as f64).clamp(0., PWM_RANGE as f64)) as c_uint,
             );
         }
         const N: usize = 200;
         let mut times = [0; N];
-        for n in 0..N {
-            iteration_start = ffi::CTimer::GetClockTicks64();
-    
+        for time in times.iter_mut() {
             let position = get_position(&mut spi);
             let setpoint = get_setpoint();
-    
+
             pid.setpoint = setpoint;
-            let output = pid.step(pid_ctrl::PidIn::new(position, 0.)).out;
-    
+            *time = ffi::CTimer::GetClockTicks64() - iteration_start;
+            let output = pid
+                .step(pid_ctrl::PidIn::new(
+                    position,
+                    f64::from(*time as u32) / 1_000_000.,
+                ))
+                .out;
+            iteration_start = ffi::CTimer::GetClockTicks64();
+
             pwm.Write(
-                PWM_CHANNEL1 as c_uint,
+                ffi::PWM_CHANNEL1 as c_uint,
                 ((output * PWM_RANGE as f64).clamp(0., PWM_RANGE as f64)) as c_uint,
             );
-
-            times[n] = ffi::CTimer::GetClockTicks64() - iteration_start;
         }
 
-        // avg 99th-avg min max
-        let min = times.iter().min();
-        let max = times.iter().max();
-        let avg = times.iter().sum::<u64>() / N as u64;
-        
+        let partition = device_name_service.GetDevice(c"umsd1-1".as_ptr(), true);
+        filesystem.Mount(partition);
+
+        let file = filesystem.FileCreate(c"times.csv".as_ptr());
+        let mut buffer = String::from("iteration,elapsed_time_us\n");
+        for (n, time) in times.iter().enumerate() {
+            buffer.push_str(&format!("{},{}\n", n, time));
+        }
+        let buffer = alloc::ffi::CString::new(buffer).unwrap();
+
+        filesystem.FileWrite(
+            file,
+            buffer.as_ptr() as *const c_void,
+            buffer.count_bytes() as u32,
+        );
+        filesystem.FileClose(file);
+        filesystem.UnMount();
+
+        ffi::halt()
     }
 
-    #[cfg(not(features = "mesaure"))]
+    #[cfg(not(feature = "measure"))]
     loop {
-        iteration_start = ffi::CTimer::GetClockTicks64();
-
         let position = get_position(&mut spi);
         let setpoint = get_setpoint();
 
         pid.setpoint = setpoint;
-        let output = pid.step(pid_ctrl::PidIn::new(position, 0.)).out;
+        let time = ffi::CTimer::GetClockTicks64() - iteration_start;
+        let output = pid
+            .step(pid_ctrl::PidIn::new(
+                position,
+                f64::from(time as u32) / 1_000_000.,
+            ))
+            .out;
+        iteration_start = ffi::CTimer::GetClockTicks64();
 
         pwm.Write(
             PWM_CHANNEL1 as c_uint,
             ((output * PWM_RANGE as f64).clamp(0., PWM_RANGE as f64)) as c_uint,
-        );
-
-        let message = alloc::ffi::CString::new(format!(
-            "Microseconds since iteration start: {}",
-            ffi::CTimer::GetClockTicks64() - iteration_start
-        ))
-        .unwrap();
-
-        logger.WriteNoAlloc(
-            FROM_KERNEL.as_ptr(),
-            ffi::TLogSeverity_LogWarning,
-            message.as_ptr(),
         );
     }
 }
