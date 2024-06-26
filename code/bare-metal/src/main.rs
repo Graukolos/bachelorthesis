@@ -60,7 +60,7 @@ pub unsafe extern "C" fn main() -> c_int {
     timer.Initialize();
     ((*usb_hci._base._base.vtable_).CUSBController_Initialize)(&mut usb_hci._base._base, true);
 
-    const SPI_FREQ: c_uint = 115200;
+    const SPI_FREQ: c_uint = 20_000_000;
     const CPOL: c_uint = 0;
     const CPHA: c_uint = 0;
     const SPI_DEVICE: c_uint = 0;
@@ -95,7 +95,7 @@ pub unsafe extern "C" fn main() -> c_int {
 
     #[cfg(feature = "measure")]
     {
-        for _ in 0..3000 {
+        for _ in 0..10000 {
             let position = get_position(&mut spi);
             let setpoint = get_setpoint();
 
@@ -114,7 +114,7 @@ pub unsafe extern "C" fn main() -> c_int {
                 ((output * PWM_RANGE as f64).clamp(0., PWM_RANGE as f64)) as c_uint,
             );
         }
-        const N: usize = 200;
+        const N: usize = 100_000;
         let mut times = [0; N];
         for time in times.iter_mut() {
             let position = get_position(&mut spi);

@@ -1,0 +1,13 @@
+[package]
+name = "os-based"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ctrlc = "3.4.4"
+embedded-hal = "1.0.0"
+pid-ctrl = "0.1.4"
+rppal = { version = "0.18.0", features = ["hal"] }
+
+[profile.release]
+lto = true

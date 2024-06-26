@@ -1,10 +1,7 @@
 {
     "rust-analyzer.linkedProjects": [
         "code/bare-metal/Cargo.toml",
-        "code/os-default/Cargo.toml",
-        "code/os-isolated/Cargo.toml",
-        "code/os-rt/Cargo.toml",
-        "code/os-shared/Cargo.toml"
+        "code/os-based/Cargo.toml"
     ],
     "rust-analyzer.cargo.allTargets": false,
     "clangd.fallbackFlags": [
