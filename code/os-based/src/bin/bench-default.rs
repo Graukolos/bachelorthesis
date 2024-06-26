@@ -24,8 +24,8 @@ fn main() {
         (iteration_start, _) = iteration(iteration_start, get_setpoint, &mut spi, &mut pid, &pwm);
     }
 
-    const N: usize = 100_000;
-    let mut times = [Duration::ZERO; N];
+    const N: usize = 1_000_000;
+    let mut times = vec![Duration::ZERO; N];
 
     for time in times.iter_mut() {
         (iteration_start, *time) =

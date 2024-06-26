@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{BufWriter, Write};
+use std::io::Write;
 use std::time::{Duration, Instant};
 
 use embedded_hal::spi::SpiBus;

@@ -2,7 +2,7 @@
 #![no_main]
 
 extern crate alloc;
-use alloc::{format, string::String};
+use alloc::{format, string::String, vec};
 use core::{
     alloc::GlobalAlloc,
     ffi::{c_int, c_uint, c_void},
@@ -114,8 +114,8 @@ pub unsafe extern "C" fn main() -> c_int {
                 ((output * PWM_RANGE as f64).clamp(0., PWM_RANGE as f64)) as c_uint,
             );
         }
-        const N: usize = 100_000;
-        let mut times = [0; N];
+        const N: usize = 1_000_000;
+        let mut times = vec![0; N];
         for time in times.iter_mut() {
             let position = get_position(&mut spi);
             let setpoint = get_setpoint();
@@ -141,7 +141,7 @@ pub unsafe extern "C" fn main() -> c_int {
 
         let file = filesystem.FileCreate(c"times.csv".as_ptr());
         let mut buffer = String::from("iteration,elapsed_time_us\n");
-        for (n, time) in times.iter().enumerate() {
+        for (n, time) in times[1..].iter().enumerate() {
             buffer.push_str(&format!("{},{}\n", n, time));
         }
         let buffer = alloc::ffi::CString::new(buffer).unwrap();
