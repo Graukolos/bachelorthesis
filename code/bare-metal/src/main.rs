@@ -95,7 +95,7 @@ pub unsafe extern "C" fn main() -> c_int {
 
     #[cfg(feature = "measure")]
     {
-        for _ in 0..10000 {
+        for _ in 0..10_000 {
             let position = get_position(&mut spi);
             let setpoint = get_setpoint();
 

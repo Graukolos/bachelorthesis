@@ -1,3 +1,5 @@
+use std::fs::File;
+use std::io::{BufWriter, Write};
 use std::time::{Duration, Instant};
 
 use embedded_hal::spi::SpiBus;
@@ -51,4 +53,17 @@ fn get_position(spi: &mut Spi) -> f64 {
 
 pub fn get_setpoint() -> f64 {
     0.
+}
+
+pub fn analyze(times: &[Duration]) {
+    let mut writer = File::create("times.csv").unwrap();
+    let mut buffer = String::from("iteration,elapsed_time_us\n");
+    for (n, time) in times.iter().enumerate() {
+        buffer.push_str(&format!("{},{}\n", n, time.as_micros()));
+    }
+    writer.write(buffer.as_bytes()).unwrap();
+
+    println!("max: {}", times.iter().map(|v| v.as_micros()).max().unwrap());
+    println!("min: {}", times.iter().map(|v| v.as_micros()).min().unwrap());
+    println!("avg: {}", times.iter().map(|v| v.as_micros()).sum::<u128>() / times.iter().len() as u128);
 }

@@ -1,4 +1,4 @@
-use os_based::{get_setpoint, iteration, setup};
+use os_based::{analyze, get_setpoint, iteration, setup};
 
 use std::{
     process::Command,
@@ -31,4 +31,6 @@ fn main() {
         (iteration_start, *time) =
             iteration(iteration_start, get_setpoint, &mut spi, &mut pid, &pwm);
     }
+
+    analyze(&times);
 }

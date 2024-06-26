@@ -1,4 +1,4 @@
-use os_based::{get_setpoint, iteration, setup};
+use os_based::{analyze, get_setpoint, iteration, setup};
 use std::process::Command;
 use std::time::{Duration, Instant};
 
@@ -23,16 +23,6 @@ fn main() {
         .wait()
         .unwrap();
 
-    ctrlc::set_handler(|| {
-        Command::new("sudo")
-            .args(["cset", "shield", "--reset"])
-            .spawn()
-            .unwrap()
-            .wait()
-            .unwrap();
-    })
-    .unwrap();
-
     // setup of communication
     let (mut spi, pwm, mut pid) = setup();
     pid.init(10., 10.);
@@ -51,4 +41,13 @@ fn main() {
         (iteration_start, *time) =
             iteration(iteration_start, get_setpoint, &mut spi, &mut pid, &pwm);
     }
+
+    analyze(&times);
+
+    Command::new("sudo")
+            .args(["cset", "shield", "--reset"])
+            .spawn()
+            .unwrap()
+            .wait()
+            .unwrap();
 }
