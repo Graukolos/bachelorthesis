@@ -6,5 +6,16 @@
     "rust-analyzer.cargo.allTargets": false,
     "clangd.fallbackFlags": [
         "-I${workspaceFolder}/code/bare-metal/circle/include"
+    ],
+    "latex-workshop.latex.external.build.args": [
+        "--shell-escape"
+    ],
+    "latex-workshop.linting.chktex.exec.args": [
+        "-wall",
+        "-n22",
+        "-n30",
+        "-e16",
+        "-q",
+        "--shell-escape"
     ]
 }
