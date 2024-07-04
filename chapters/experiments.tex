@@ -14,12 +14,12 @@ This allows us to compare not only the speed of each program version but also th
 
 In order to make the benchmarks as comparable as possible we set a few invariants between the runs:
 \begin{itemize}
-    \item Each of the benchmarks is run on the exact same RaspberryPi 4B.
-    \item The Pi runs at the stock core frequency of 1800MHz.
-    \item The linux versions run RaspberryPi OS, a derivative of Debian Linux with the stock configuration.
-    \item The kernel version is 6.1.73 for the stock and isolated core versions.
-    \item The realtime version runs on 6.1.73-rt which was compiled prior on the RaspberryPi. For Instructions to replicate this kernel see the Appendix \ref{sec:appendix:realtime}.
-    \item Our control loop target value is set to a constant for these tests and the IC-MU position encoder is fixed in place in order to return almost the same value each iteration.
+  \item Each of the benchmarks is run on the exact same RaspberryPi 4B.
+  \item The Pi runs at the stock core frequency of 1800MHz.
+  \item The linux versions run RaspberryPi OS, a derivative of Debian Linux with the stock configuration.
+  \item The kernel version is 6.1.73 for the stock and isolated core versions.
+  \item The realtime version runs on 6.1.73-rt which was compiled prior on the RaspberryPi. For Instructions to replicate this kernel see the Appendix \ref{sec:appendix:realtime}.
+  \item Our control loop target value is set to a constant for these tests and the IC-MU position encoder is fixed in place in order to return almost the same value each iteration.
   \item Rustc 1.79.0 was used for all rust builds, both native and cross compiled to bare-metal
   \item GCC 13.2.1 was used as the cross compiler as well as linker for compiling the Circle library and linking it to the Rust code.
   \item GCC 12.2.0 was used as the native linker for the Rust code.
@@ -187,7 +187,7 @@ In our simplest case we look at some statistical data from the measurments.
 Most important for our purposes are the average and worst case times.
 
 \begin{table}[h!]
-    \label{tab:measurments}
+  \label{tab:measurments}
   \begin{tabular}{|l|l|l|l|l|}
     \hline
                    & Mean    & Min  & Max    & Std Dev \\ \hline
@@ -289,11 +289,5 @@ In order to overcome this downside we have the histogram with a logarithmic scal
   \end{center}
 \end{figure}
 
-
 \section{Interpretation}
 
-\begin{comment}
-Measure iteration time over x iterations.
-Derive average, minimal and maximal iteration times.
-Look at variance 
-\end{comment}

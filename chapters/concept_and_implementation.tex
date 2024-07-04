@@ -3,30 +3,16 @@
 % Usually, first on a higher level and then in detail including implementation details.
 % So the question that is answered is: How do you try to solve the problem at hand?
 
-\begin{comment}
-    Super loop:
-    1. Fetch current control value and feedback from system
-    2. Calculate new output value accordingly
-    3. Adjust output (PWM)
-    
-    PD or PDI Control?
-    
-    
-    Bare-metal vs
-    Preempt-RT vs
-    linux
-\end{comment}
-
 \chapter{Concept and Implementation}
 \label{chap:concept_and_implementation}
 
 Now for the actual implementation:\\
-We will first consider the general control flow of our application, both for the bare-metal and OS-based version.
+We will first consider the general control flow of our application, both for the bare-metal and OS based version.
 For the Linux version specifically we will then compare multiple approaches to optimize the OS both in terms of average performance as well as worst case latencies.
 These different versions will later be compared to the bare-metal version in the \nameref{chap:experiments} chapter.
 The bare-metal version demands a more detailed look, as it is the focus of this thesis.
-As it is needed for any other step we will first look at the bootup process on the Raspberry Pi and how to produce a Rust binary that successfully boots.
-From that we will continue with how the bindings to Circle were created and how and why an abstraction on top of it was written to make the underlying C code adhere to Rusts safety guarantees.
+For the bare-metal version we will first look at the bootup process on the Raspberry Pi and how to produce a Rust binary that successfully boots.
+From that we will continue with how the bindings to Circle were created as well as how and why an abstraction on top of it was written to make the underlying C code adhere to Rusts safety guarantees.
 
 \section{The Control Loop}
 \label{sec:concept_and_implementation:control_flow}
@@ -42,16 +28,267 @@ Last, in the update step, we update the duty cycle of the output PWM signal base
 \section{Linux based version}
 \label{sec:concept_and_implementation:linux}
 
+Interacting with the SPI and PWM hardware on linux works through the spidev character device in /dev/spidev0.0 and the pwm interface in /sys/class/pwm .
+For Rust there exists a library called rppal that provides a simple interface for interacting with these.
+Because of this, it will be used for the linux versions.
+
 \subsection{Approaches to minimize jitter}
 \label{sec:concept_and_implementation:linux:approaches}
 
-\begin{itemize}
-    \item Default settings and hope
-    \item PREEMP-RT + higher priority
-    \item dedicated core
-\end{itemize}
+In order to give the linux version the best chance to compete with the bare-metal version we try two optimization approaches.
+First, we tell the linux scheduler to reserve an entire core for our program, so that it is never moved between cores and never interrupted by core local interrupts.
+By this we aim to improve the worst case iteration times without changing the average case.
+In an attempt to go even further we will also try a linux kernel with the PREEMPT\_RT patchset,
+which replaces the scheduler by a realtime capable one and makes every section of the kernel preemptible.
+The idea behind this is that even the parts of our program that run in kernel space,
+by making syscalls to the spi and pwm kernel drivers, run at a higher priority than other kernel tasks.
+To verify if our approaches made any significant difference we will also be running an unmodified stock kernel with our program at default priority.
+
+\subsection{Setup with rppal}
+\label{sec:concept_and_implementation:linux:rppal}
+
+Setting up Spi and PWM through rppal isn't very complex,
+but it comes with a few small caveats that are noteworthy
+and is a good primer on how linking to external code works in Rust which will be useful when we turn to the bare-metal version.
+
+Rust projects are built using the Cargo build system. This allows us to add rppal into the compilation process by editing our projects Cargo.toml file.
+
+\begin{verbatim}
+[package]
+name = "os-based"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ctrlc = "3.4.4"
+embedded-hal = "1.0.0"
+pid-ctrl = "0.1.4"
+rppal = { version = "0.18.0", features = ["hal"] }
+
+[profile.release]
+lto = true
+\end{verbatim}
+
+This pulls the rppal source code from crates.io and builds it together with our program and links the two afterwards.
+Alternatively we could have specified a link or path to a custom version of rppal if that were needed.
+Setting up the devices is then done by including the relevant types and creating instances of them.
+
+\begin{lstlisting}[language=Rust,style=colouredRust]
+    use rppal::{spi::Spi, pwm::Pwm};
+    Spi::new(Bus::Spi0, SlaveSelect::Ss0, 20_000_000, Mode::Mode0).unwrap();
+    Pwm::with_frequency(Channel::Pwm0, 1_000., 0.5, Polarity::Normal, false).unwrap();
+\end{lstlisting}
+
+On a stock Raspberry Pi 4 with Raspberry Pi OS this would still fail, because by default the spi and pwm device tree overlays are not enabled.
+In order to enable them we need to set dtparam=spi=on in /boot/firmware/config.txt for spi and dtoverlay=pwm for pwm.
+
+\subsection{Getting the current position}
+
+In \nameref{sec:background:hardware:spi} and \nameref{sec:background:hardware:ic-mu} we have already seen how SPI and the position encoder that we are using work.
+This leaves us with how to transmit the actual position data.
+The position transmission is initiated by the SPI master by sending the SDAD\_TRANSMISSION opcode.
+The IC-MU chip answers by echoing the opcode and appending the position.
+The format and length of the position is dependent on several configuration values on the IC-MU, but for our purposes the default configuration is appropriate.
+In the default configuration this is 19 bits of actual position data with five zeros added as padding.
+In Rust the transmission looks like this:
+
+\begin{lstlisting}[language=Rust,style=colouredRust]
+const SDAD_TRANSMISSION: u8 = 0xa6;
+let mut buf = [SDAD_TRANSMISSION, 0, 0, 0, 0];
+
+spi.transfer_in_place(&mut buf).unwrap();
+let position = u32::from_be_bytes(buf[1..].try_into().unwrap()) >> 13;
+\end{lstlisting}
+
+Here we transmit by writing in the same buffer that we are reading from for sending, which means we need four bytes of space, one for the opcode and 3 for the data.
+To make converting to an integer easier we add a fifth byte, so we can just interpret the last 32 bits of the buffer as our position.
+Because the IC-MU sends in big endian we use u32::from\_be\_bytes() for the conversion.
+
+\subsection{Providing a PID controller}
+
+While is the aim of this thesis to enable flexible implementation of different control schemes, implementing these is not in our scope.
+For now, we will implement a simple PID controller that stays the same between the linux and bare-metal versions.
+
+For this we decided on the pid-ctrl library to be used, as it is easy to use, works on bare-metal and supports differing time deltas.
+
+The process of including it is analogous to rppal. In fact in the \nameref{sec:concept_and_implementation:linux:rppal} chapter, we already included it in our build process.
+So all that is to do is to use it in our code.
+
+\begin{lstlisting}[language=Rust,style=colouredRust]
+let mut pid = PidCtrl::new_with_pid(10., 1., 5.);
+
+loop {
+    ...
+    let position = get_position(spi);
+    pid.setpoint = get_setpoint();
+    let output = pid
+        .step(pid_ctrl::PidIn::new(position, iteration_time.as_secs_f64()))
+        .out;
+    ...
+}
+\end{lstlisting}
 
 \section{Bare-Metal}
 \label{sec:concept_and_implementation:bare_metal}
 
-\subsection{rppal}
+Bare metal programming is traditionally something reserved for microcontrollers or os kernels.
+While the Raspberry Pi 4 very much isn't a microcontroller but a fully fledged PC capable of running desktop class operating systems,
+its simple boot process and access to low level IO such as $I^2C$, SPI and GPIO pins capable of analog input and output still allow it as if it were a microcontroller.
+
+\subsection{HAL vs Circle}
+\label{sec:concept_and_implementation:bare-metal:hal}
+
+As we have seen in \nameref{sec:background:rust:embedded} the traditional way to program for a microcontroller in Rust
+is to create a library for it that implements all the traits from the embedded-hal crate and a second library for the bootup process.
+Doing that from scratch is as significant task that would exceed the scope of a bachelorthesis by quite a bit.
+But in order to enable a better evaluation of Rust's suitability for embedded systems we will demonstrate how such an implementation would look for the Gpio pins in \nameref{sec:concept_and_implementation:hal}.
+For the actually functional bare-metal program we will be using a different route.
+The Circle library is a C++ framework that provides bare-metal access to pretty much all of the Rpi's available hardware.
+That means not only Gpio, Spi and I2c, but also the more complex subsystems, such as PCIe, USB, display outputs and ethernet.
+So we are going to use this library through Rust's Foreign Functions Interface (FFI from now on).
+
+\subsection{Cross compiling for bare-metal aarch64}
+\label{sec:concept_and_implementation:bare-metal:cross}
+
+On linux there are two main ways of obtaining a Rust compiler.
+Through your distributions package manager or through rustup,
+a tool for managing if neccessary multiple versions of rustc, as well as any connected tooling.
+For cross compilers the first option is nearly nonexistent, so we need to use rustup.
+Rustup is easily installed on linux by running the following command.
+\begin{verbatim}
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+\end{verbatim}
+To be able to cross compile to aarch64-unknown-none we run
+\begin{verbatim}
+rustup target add aarch64-unknown-none
+\end{verbatim}
+For most targets the rustup target add command does two things.
+First it downloads the compiler backend for the new target architecture.
+Second it downloads a precompiled version of the rust standard library for the new target if available.
+Since we are adding a bare-metal target there is no complete standard library, but Rust's standard library is split into three parts of which we can use two.
+The lowest and most constraint part is the core library.
+It contains primitive types and operations on them.
+Because this part is built purely on llvm primitives it is available for every target and does not need to be compiled as it lives inside the compiler.
+The second part available to bare-metal systems is the alloc library, this adds types,
+operations and traits that depend on the existence of a memory allocator.
+If we want to use this part we need to provide a memory allocator.
+Fortunately for us Circle provides a malloc and free implementation, which we can use as our allocator.
+The third part of the standard library is called std and contains all types that rely on syscalls to the underlying operationg system.
+This means networking, file system access and timing.
+
+If we are only cross compiling rust code this would already be enough.
+But since we also want to compile Circle and then link the final binaries together we need a C cross compiler as well as a linker.
+Arm provides precompiled toolchains for C so we will use the latest one provided by them at the time of writing.
+%https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads
+
+There is one final thing to do, when linking to external binaries Rust uses \$\{target\}-gcc as the linker, so in our case aarch64-unknown-none-gcc.
+To use aarch64-none-elf-ld instead which we got from Arm in our project directory we add a .cargo/config.toml file with the following content:
+\begin{verbatim}
+[target.aarch64-unknown-none]
+linker = "aarch64-none-elf-ld"
+
+[build]
+target = "aarch64-unknown-none"
+\end{verbatim}
+The linker line sets the linker to the correct binary and the target lines changes the default target when using cargo.
+
+\subsection{Bootup process of the Raspberry Pi 4}
+\label{sec:concept_and_implementation:bare-metal:boot}
+
+The first part of creating a bare-metal controller is creating a binary that even boots on the Raspberry Pi.
+\begin{enumerate}
+    \item The on-chip first stage bootloader is loaded from address 0x60000000
+    \item It checks if a recovery.bin is present on the first FAT32 partition of the SD-card. If it is found it is flashed to the onboard EEPROM chip and the Rpi is rebooted.
+    \item Else it loads the second stage bootloader and its configuration from the EEPROM
+    \item The second stage bootloader loads the third stage bootloader either from the SD-card, a USB storage device or the network, depending on the configuration.
+        The third stage bootloader is split into the binary start4.elf, the relocation table fixup4.dat and config.txt for the configuration.
+    \item The third stage bootloader loads the kernel image and jumps to address 0x80000. By default this is kernel8.img, but the kernel file name can be set in config.txt.
+    \item In some cases this kernel.img may be another bootloader such as u-boot, which could then load grub.
+        This additional boot part is used in many linux distributions, that support uefi boot on aarch64 and not the Raspberry Pi specific chain.
+\end{enumerate}
+
+To produce a bootable rust binary we start from a clean project folder generated with cargo new.
+This clean project contains a Cargo.toml for the build system configuration and a src/main.rs with the actual code.
+
+First we will add a .cargo/config.toml similar to what we saw in \nameref{sec:concept_and_implementation:bare-metal:cross}.
+\begin{verbatim}
+[target.aarch64-unknown-none]
+linker = "aarch64-none-elf-ld"
+rustflags = ["-C", "link-arg=Tlink.ld"]
+    
+[build]
+target = "aarch64-unknown-none"
+\end{verbatim}
+The added rustflags line allows us to control which logical addressess code is placed at in the linking step.
+To control this we create link.ld:
+\begin{verbatim}
+SECTIONS
+{
+    . = 0x80000;
+    .text :
+    {
+        *(.text._start)
+        *(.text*)
+    }
+}
+\end{verbatim}
+The .text section of a binary is where the actual instructions lie as opposed to .data and .bss.
+What we are doing here is keeping all of the segments in .text, placing .text.\_\_start at the beginning of .text and let .text begin at 0x80000.
+As we already discussed 0x80000 is the address to which the Raspberry Pi jumps after loading the kernel.
+Now for the actual Rust code. Since there is not standard library on bare-metal we need to tell Rust not to link to the standard library.
+This is done by prepending \#\![no\_std] to main.rs.
+The second thing to prepend is \#\![no\_main] because otherwise Rust expects a main function that can be called with the runtime setup required for command line arguments.
+On bare-metal we neither have command line arguments nor a runtime.
+One thing that the standard library used to provide for us was a panic\_handler implementation.
+As the name suggests, the panic handler controls panic exceptions.
+On an operating system that typically includes logging the error message to stderr, but for bare-metal Rust expects us to provide an implementation.
+That leaves on final task, writing the function that will actually be run and ensuring that it is linked to the .text.\_\_start section.
+\begin{lstlisting}[language=Rust,style=colouredRust]
+#![no_std]
+#![no_main]
+
+use core::panic::PanicInfo;
+
+#[panic_handler]
+fn panic(_: &PanicInfo) -> ! {
+    loop {}
+}
+
+#[no_mangle]
+#[link_section = ".text._start"]
+pub extern "C" fn _start() -> ! {
+	loop {}
+}
+\end{lstlisting}
+
+At this point we can obtain a binary by running cargo build.
+But this binary would be an elf executable that cannot be executed without a program loader.
+ELF in this context stands for executable-linkable-format and is the file format that linux expects for executable binaries,
+with a header that contains all the relevant information for the dynamic linker.
+The bootloader however just copies the kernel image to RAM and sets the instruction pointer to 0x80000.
+This means that we have to rip out the code from our elf binary and create a flat binary without an elf header.
+The program that does this is called objcopy and is a standard part of the gnu toolchain.
+This means that we already have the correct version aarch64-none-elf-objcopy available from installing the C cross compiler.
+
+\begin{verbatim}
+cargo build --release
+aarch64-none-elf-objcopy -O binary \
+    target/aarch64-unknown-none/release/<project-name> \
+    kernel8.img
+\end{verbatim}
+
+When building Rust only bare-metal project there is an easier way to obtain objcopy than to install the complete Gnu toolchain.
+\begin{verbatim}
+rustup component add llvm-tools
+cargo install cargo-binutils
+\end{verbatim}
+Which allows to build and extract the binary in one command with any target available that was added through rustup.
+\begin{verbatim}
+cargo objcopy --release -- -O binary kernel8.img
+\end{verbatim}
+
+\subsection{Compiling circle and linking it to Rust}
+\label{sec:concept_and_implementation:bare-metal:ffi}
+
+\section{Rust native HAL}
+\label{sec:concept_and_implementation:hal}
