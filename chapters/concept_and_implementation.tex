@@ -233,7 +233,7 @@ SECTIONS
 }
 \end{verbatim}
 The .text section of a binary is where the actual instructions lie as opposed to .data and .bss.
-What we are doing here is keeping all of the segments in .text, placing .text.\_\_start at the beginning of .text and let .text begin at 0x80000.
+What we are doing here is keeping all of the segments in .text, placing .text.\_start at the beginning of .text and let .text begin at 0x80000.
 As we already discussed 0x80000 is the address to which the Raspberry Pi jumps after loading the kernel.
 Now for the actual Rust code. Since there is not standard library on bare-metal we need to tell Rust not to link to the standard library.
 This is done by prepending \#\![no\_std] to main.rs.
@@ -242,7 +242,7 @@ On bare-metal we neither have command line arguments nor a runtime.
 One thing that the standard library used to provide for us was a panic\_handler implementation.
 As the name suggests, the panic handler controls panic exceptions.
 On an operating system that typically includes logging the error message to stderr, but for bare-metal Rust expects us to provide an implementation.
-That leaves on final task, writing the function that will actually be run and ensuring that it is linked to the .text.\_\_start section.
+That leaves on final task, writing the function that will actually be run and ensuring that it is linked to the .text.\_start section.
 \begin{lstlisting}[language=Rust,style=colouredRust]
 #![no_std]
 #![no_main]
@@ -260,6 +260,12 @@ pub extern "C" fn _start() -> ! {
 	loop {}
 }
 \end{lstlisting}
+
+The no\_mangle attribute before the start function tells the Rust compiler not to mangle the function name, which by default it would do.
+The link\_section attribute ensures that our start function is linked to the section we forced in the linker script to be included at address 0x80000.
+The pub attribute makes the function visible to the linker instead of only to the compiler.
+The extern C attribute tells the compiler to adhere to the C ABI for the start function.
+This is necessary because the Rust ABI is unstable and may be more complicated than jumping to the start address.
 
 At this point we can obtain a binary by running cargo build.
 But this binary would be an elf executable that cannot be executed without a program loader.
@@ -289,6 +295,60 @@ cargo objcopy --release -- -O binary kernel8.img
 
 \subsection{Compiling circle and linking it to Rust}
 \label{sec:concept_and_implementation:bare-metal:ffi}
+
+Many languages provide a way to link to C ABI (Application Binary Interface) functions, examples for this are C++ with its extern C, Haskell with its FFI module as well as Python.
+The reasons for this are very simple, for one, the C ABI for each target platform is stable and allows thus to be used as a common language to bridge other languages.
+Second, C is still a widely used language with many useful libraries in any field of programming, which can then be used by languages with a C interface.
+
+As Rust is a systems programming language the prevalence of C libraries in areas interesting to Rust is even greater.
+In its most basic form the Rust FFI system works through declaring functions as extern C, when calling Rust functions from C
+and declaring extern C functions in Rust without a definition, when calling C code from Rust.
+
+\begin{lstlisting}[language=Rust,style=colouredRust]
+use std::ffi::c_int;
+
+extern "C" {
+    fn c_function(number1: c_int) -> c_int;
+}
+
+#[no_mangle]
+pub extern "C" fn rust_function(number2: c_int) -> c_int {
+    number2
+}
+
+fn calling_c_from_rust() {
+    let _ = unsafe { c_function(42) };
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=C]
+int rust_function(int number2);
+
+int c_function(int number1) {
+    return number1;
+}
+
+void calling_rust_from_c(void) {
+    rust_function(42);
+}
+\end{lstlisting}
+
+Writing these bindings manually is fine for a handful of functions, but for anything larger in scope some automation would be useful.
+Fortunately there are a few well supported libraries which aim to automate this under different circumstances.
+Bindgen takes in C header files and generates a Rust file with the appropriate extern C declarations from it.
+It works both as a executable for manual use as well as a library that can be integrated into the build process.
+Since intercompatibility with C code has been important for Rust from the beginning,
+bindgen is an official project maintained under the same umbrella as the compiler and cargo.
+One company that makes heavy use of Rust is Mozilla for their firefox browser.
+Because firefox is mostly written in C the opposite case of bindgen, calling Rust from C code is very common in the firefox codebase.
+As a result Mozilla created cbindgen, which takes in Rust files and creates a C header with declarations for all public functions.
+
+bindgen
+cbindgen
+autocxx
+cxxgen
+
+
 
 \section{Rust native HAL}
 \label{sec:concept_and_implementation:hal}
