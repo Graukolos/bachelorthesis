@@ -28,25 +28,25 @@ In order to make the benchmarks as comparable as possible we set a few invariant
 \subsection{Testing the linux based versions}
 The linux versions all run a common iteration function:
 \begin{lstlisting}[language=Rust,style=colouredRust]
-    pub fn iteration(...) -> Instant {
-        // fetch step: calculate elapsed time, get new position and setpoint
-        let iteration_time = last_iteration_start.elapsed();
-        let iteration_start = Instant::now();
-    
-        let position = get_position(spi);
-        let setpoint = get_setpoint();
-    
-        // compute step: calculate new output value
-        pid.setpoint = setpoint;
-        let output = pid
-            .step(pid_ctrl::PidIn::new(position, iteration_time.as_secs_f64()))
-            .out;
-    
-        // update step: output the new value over PWM
-        pwm.set_duty_cycle(output).unwrap();
-    
-        iteration_start
-    }
+  pub fn iteration(...) -> Instant {
+      // fetch step: calculate elapsed time, get new position and setpoint
+      let iteration_time = last_iteration_start.elapsed();
+      let iteration_start = Instant::now();
+  
+      let position = get_position(spi);
+      let setpoint = get_setpoint();
+  
+      // compute step: calculate new output value
+      pid.setpoint = setpoint;
+      let output = pid
+          .step(pid_ctrl::PidIn::new(position, iteration_time.as_secs_f64()))
+          .out;
+  
+      // update step: output the new value over PWM
+      pwm.set_duty_cycle(output).unwrap();
+  
+      iteration_start
+  }
 \end{lstlisting}
 
 Time measurment is done here through Rusts stdlib Instant and Duration types.
@@ -64,18 +64,18 @@ Global interrupts such as spinlocks when running a syscall can however still hal
 
 We can run cset from inside of our program with the current process id this way:
 \begin{lstlisting}[language=Rust,style=colouredRust]
-    Command::new("sudo")
-        .args([
-            "cset",
-            "shield",
-            "--cpu=3",
-            "--kthread=on",
-            &format!("--pid={}", std::process::id()),
-        ])
-        .spawn()
-        .expect("Could not start cset binary")
-        .wait()
-        .expect("cset did not exit successfully");
+  Command::new("sudo")
+      .args([
+          "cset",
+          "shield",
+          "--cpu=3",
+          "--kthread=on",
+          &format!("--pid={}", std::process::id()),
+      ])
+      .spawn()
+      .expect("Could not start cset binary")
+      .wait()
+      .expect("cset did not exit successfully");
 \end{lstlisting}
 
 For the realtime version we needed a kernel that can boot with the Raspberry Pi bootloader,
@@ -84,37 +84,37 @@ In order to get that combination, the official sources for the Rpi kernel were p
 
 To achieve this Step 1 is to get all the required build dependencies.
 \begin{lstlisting}[language=bash, breaklines]
-    sudo apt update && sudo apt install build-essential flex bison libssl-dev bc
+  sudo apt update && sudo apt install build-essential flex bison libssl-dev bc
 \end{lstlisting}
 
 Step 2 is to get the kernel sources and patch them with the correct PREEMPT-RT patchset.
 \begin{lstlisting}[language=bash, breaklines]
-    wget https://github.com/raspberrypi/linux/archive/refs/tags/stable_20240124.tar.gz
-    wget https://cdn.kernel.org/pub/linux/kernel/projects/rt/6.1/older/patch-6.1.73-rt22.patch.xz
-    tar -xf stable_20240124.tar.gz
-    cd linux-stable_20240124
-    xzcat ../patch-6.1.73-rt22.patch.xz | patch -p1
+  wget https://github.com/raspberrypi/linux/archive/refs/tags/stable_20240124.tar.gz
+  wget https://cdn.kernel.org/pub/linux/kernel/projects/rt/6.1/older/patch-6.1.73-rt22.patch.xz
+  tar -xf stable_20240124.tar.gz
+  cd linux-stable_20240124
+  xzcat ../patch-6.1.73-rt22.patch.xz | patch -p1
 \end{lstlisting}
 
 Step 3 is to generate the kernel config, we use the provided default config for the Raspberry Pi 4 and only set the PREEMPT\_RT config value to enable full kernel preemption.
 \begin{lstlisting}[language=bash, breaklines]
-    make bcm2711_defconfig
-    ./scripts/config -e PREEMPT_RT
-    make olddefconfig
+  make bcm2711_defconfig
+  ./scripts/config -e PREEMPT_RT
+  make olddefconfig
 \end{lstlisting}
 
 Step 4 is to actually compile the kernel, this takes about 3 hours on all 4 cores of the Raspberry Pi 4.
 \begin{lstlisting}[language=bash, breaklines]
-    make -j4 Image.gz modules dtbs
+  make -j4 Image.gz modules dtbs
 \end{lstlisting}
 
 Step 5 is to actually install the files.
 \begin{lstlisting}[language=bash, breaklines]
-    sudo make modules_install
-    sudo cp arch/arm64/boot/dts/broadcom/*.dtb /boot/firmware/
-    sudo cp arch/arm64/boot/dts/overlays/*.dtb* /boot/firmware/overlays/
-    sudo cp arch/arm64/boot/dts/overlays/README /boot/firmware/overlays/
-    sudo cp arch/arm64/boot/Image.gz /boot/firmware/kernel8.img
+  sudo make modules_install
+  sudo cp arch/arm64/boot/dts/broadcom/*.dtb /boot/firmware/
+  sudo cp arch/arm64/boot/dts/overlays/*.dtb* /boot/firmware/overlays/
+  sudo cp arch/arm64/boot/dts/overlays/README /boot/firmware/overlays/
+  sudo cp arch/arm64/boot/Image.gz /boot/firmware/kernel8.img
 \end{lstlisting}
 
 At the end reboot to load the new kernel.
@@ -134,49 +134,49 @@ so we will only skim over the most important parts.
 
 In our wrapper.hpp we need to include "circle/fs/fat/fatfs.h" and "circle/usb/usbhcidevice.h"
 \begin{lstlisting}[language=C++]
-    #include "circle/fs/fat/fatfs.h"
-    #include "circle/usb/usbhcidevice.h"
+#include "circle/fs/fat/fatfs.h"
+#include "circle/usb/usbhcidevice.h"
 \end{lstlisting}
 
 In our main.rs we initialize these devices and save the measured times as a csv file.
 \begin{lstlisting}
-    let mut usb_hci =
-        ffi::CXHCIDevice::new(&mut interrupt_system, &mut timer, false, 0, null_mut());
-    let mut filesystem = ffi::CFATFileSystem::new();
+let mut usb_hci =
+    ffi::CXHCIDevice::new(&mut interrupt_system, &mut timer, false, 0, null_mut());
+let mut filesystem = ffi::CFATFileSystem::new();
 
 
-    ((*usb_hci._base._base.vtable_).CUSBController_Initialize)(&mut usb_hci._base._base, true);
+((*usb_hci._base._base.vtable_).CUSBController_Initialize)(&mut usb_hci._base._base, true);
 
-    for _ in 0..10000 {
-        ...
-    }
-    const N: usize = 200;
-    let mut times = [0; N];
-    for time in times.iter_mut() {
-        ...
-        *time = ffi::CTimer::GetClockTicks64() - iteration_start;
-        ...
-        iteration_start = ffi::CTimer::GetClockTicks64();
-        ...
-    }
+for _ in 0..10000 {
+    ...
+}
+const N: usize = 200;
+let mut times = [0; N];
+for time in times.iter_mut() {
+    ...
+    *time = ffi::CTimer::GetClockTicks64() - iteration_start;
+    ...
+    iteration_start = ffi::CTimer::GetClockTicks64();
+    ...
+}
 
-    let partition = device_name_service.GetDevice(c"umsd1-1".as_ptr(), true);
-    filesystem.Mount(partition);
+let partition = device_name_service.GetDevice(c"umsd1-1".as_ptr(), true);
+filesystem.Mount(partition);
 
-    let file = filesystem.FileCreate(c"times.csv".as_ptr());
-    let mut buffer = String::from("iteration,elapsed_time_us\n");
-    for (n, time) in times.iter().enumerate() {
-        buffer.push_str(&format!("{},{}\n", n, time));
-    }
-    let buffer = alloc::ffi::CString::new(buffer).unwrap();
+let file = filesystem.FileCreate(c"times.csv".as_ptr());
+let mut buffer = String::from("iteration,elapsed_time_us\n");
+for (n, time) in times.iter().enumerate() {
+    buffer.push_str(&format!("{},{}\n", n, time));
+}
+let buffer = alloc::ffi::CString::new(buffer).unwrap();
 
-    filesystem.FileWrite(
-        file,
-        buffer.as_ptr() as *const c_void,
-        buffer.count_bytes() as u32,
-    );
-    filesystem.FileClose(file);
-    filesystem.UnMount();
+filesystem.FileWrite(
+    file,
+    buffer.as_ptr() as *const c_void,
+    buffer.count_bytes() as u32,
+);
+filesystem.FileClose(file);
+filesystem.UnMount();
 \end{lstlisting}
 
 \section{Results}

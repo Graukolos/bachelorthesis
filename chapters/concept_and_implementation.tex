@@ -74,9 +74,9 @@ Alternatively we could have specified a link or path to a custom version of rppa
 Setting up the devices is then done by including the relevant types and creating instances of them.
 
 \begin{lstlisting}[language=Rust,style=colouredRust]
-    use rppal::{spi::Spi, pwm::Pwm};
-    Spi::new(Bus::Spi0, SlaveSelect::Ss0, 20_000_000, Mode::Mode0).unwrap();
-    Pwm::with_frequency(Channel::Pwm0, 1_000., 0.5, Polarity::Normal, false).unwrap();
+use rppal::{spi::Spi, pwm::Pwm};
+Spi::new(Bus::Spi0, SlaveSelect::Ss0, 20_000_000, Mode::Mode0).unwrap();
+Pwm::with_frequency(Channel::Pwm0, 1_000., 0.5, Polarity::Normal, false).unwrap();
 \end{lstlisting}
 
 On a stock Raspberry Pi 4 with Raspberry Pi OS this would still fail, because by default the spi and pwm device tree overlays are not enabled.
@@ -201,10 +201,10 @@ The first part of creating a bare-metal controller is creating a binary that eve
     \item It checks if a recovery.bin is present on the first FAT32 partition of the SD-card. If it is found it is flashed to the onboard EEPROM chip and the Rpi is rebooted.
     \item Else it loads the second stage bootloader and its configuration from the EEPROM
     \item The second stage bootloader loads the third stage bootloader either from the SD-card, a USB storage device or the network, depending on the configuration.
-        The third stage bootloader is split into the binary start4.elf, the relocation table fixup4.dat and config.txt for the configuration.
+          The third stage bootloader is split into the binary start4.elf, the relocation table fixup4.dat and config.txt for the configuration.
     \item The third stage bootloader loads the kernel image and jumps to address 0x80000. By default this is kernel8.img, but the kernel file name can be set in config.txt.
     \item In some cases this kernel.img may be another bootloader such as u-boot, which could then load grub.
-        This additional boot part is used in many linux distributions, that support uefi boot on aarch64 and not the Raspberry Pi specific chain.
+          This additional boot part is used in many linux distributions, that support uefi boot on aarch64 and not the Raspberry Pi specific chain.
 \end{enumerate}
 
 To produce a bootable rust binary we start from a clean project folder generated with cargo new.
@@ -342,13 +342,314 @@ bindgen is an official project maintained under the same umbrella as the compile
 One company that makes heavy use of Rust is Mozilla for their firefox browser.
 Because firefox is mostly written in C the opposite case of bindgen, calling Rust from C code is very common in the firefox codebase.
 As a result Mozilla created cbindgen, which takes in Rust files and creates a C header with declarations for all public functions.
+For interacting with C++ code there are two more libraries, cxx and autocxx.
+Because C++ functions do not neccessarily adhere to the C ABI calling them from Rust and vice versa can be difficult with bindgen, as we will see later.
+Instead cxx takes a declaration for a common interface between C++ and Rust and generates a bridge from pure C functions that both languages can access.
+Autocxx by Google is similar to bindgen for C++, but instead of generating a Rust interface directly it generates a cxx interface, which in turn generates the Rust interface.
 
-bindgen
-cbindgen
-autocxx
-cxxgen
+To come back to our original problem, which one of these should we use to access the circle library from our Rust code?
+Since circle is written in C++ and we just want to call C++ functions from Rust, not the other way around, autocxx would be the ideal choice.
+Unfortunately at the time of writing autocxx does not work with bare-metal programs.
+There is ongoing work on this and autocxx itself can actually be compiled for bare-metal, but one of its dependencies can't.
+This leaves us with two options, use cxx and manually write the interface, or use bindgen and work with a more convoluted interface.
+Since bindgen has been stable for a long time and cxx is still partially a work in progress wo chose to use bindgen for a more meaningful insight into Rust.
 
+As mentioned earlier bindgen can be used either as a command line utility to generate the bindings once,
+or as a build dependency to automatically generate the bindings at compile time.
+We are going to use the second approach.
+To add bindgen as a build dependency we add
+\begin{verbatim}
+[build-dependencies]
+bindgen = "0.69.4"
+\end{verbatim}
+to our Cargo.toml.
 
+Cargo provides the option of creating a build.rs file, which will be compiled and executed before the actual compile.
+In order to create the bindings and link the final binaries correctly we create a build.rs.
+\begin{lstlisting}[language=Rust,style=colouredRust]
+use bindgen::{Builder, MacroTypeVariation};
+use std::{env, path::PathBuf};
+    
+fn main() {
+    ...
+}    
+\end{lstlisting}
+
+Inside the main function we do three different things.
+First, setting up the linker search path, second, linking to the correct binaries and third generating the bindings for Rust.
+For all this we have placed the circle source code in the circle directory in our project folder as well as configured and built the circle library.
+We will take a more detailed look at configuring and compiling circle soon, but for now the focus is on the build script.
+
+The linker search path is expanded like this:
+\begin{lstlisting}[language=Rust,style=colouredRust]
+let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+println!(
+    "cargo:rustc-link-search={}",
+    manifest_dir.join("circle").display()
+); // for circle.ld
+println!(
+    "cargo:rustc-link-search={}",
+    manifest_dir.join("circle/lib/usb").display()
+); // for libusb.a
+println!(
+    "cargo:rustc-link-search={}",
+    manifest_dir.join("circle/lib/input").display()
+); // for libinput.a
+println!(
+    "cargo:rustc-link-search={}",
+    manifest_dir.join("circle/lib/fs/fat").display()
+); // for libfatfs.a
+println!(
+    "cargo:rustc-link-search={}",
+    manifest_dir.join("circle/lib/fs").display()
+); // for libfs.a
+println!(
+    "cargo:rustc-link-search={}",
+    manifest_dir.join("circle/lib").display()
+); // for libcircle.a
+\end{lstlisting}
+
+Then we link to the binaries mentioned in the above code:
+\begin{lstlisting}[language=Rust,style=colouredRust]
+println!("cargo:rustc-link-lib=usb");
+println!("cargo:rustc-link-lib=input");
+println!("cargo:rustc-link-lib=fatfs");
+println!("cargo:rustc-link-lib=fs");
+println!("cargo:rustc-link-lib=circle");
+\end{lstlisting}
+
+Generating the bindings is simple thanks to bindgen, we generate bindings for all symbols in wrapper.hpp,
+a file that we will write where we include all the headers interesting to us.
+Notable are the use\_core() and vtable\_generation(true) methods.
+Use\_core() tells bindgen to use only types from the core library instead of std in the bindings, which is necessary for us as we are targeting a bare-metal environment.
+Vtable\_generation(true) enables generating types for the vtables of C++ classes.
+This allows us to make calls to inherited functions of classes.
+\begin{lstlisting}[language=Rust,style=colouredRust]
+let bindings = Builder::default()
+    .header("wrapper.hpp")
+    .use_core()
+    .clang_arg(format!(
+        "-I{}",
+        manifest_dir.join("circle/include").display()
+    ))
+    .vtable_generation(true)
+    .default_macro_constant_type(MacroTypeVariation::Signed)
+    .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
+    .generate()
+    .expect("Unable to generate bindings");
+
+let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+bindings
+    .write_to_file(out_path.join("bindings.rs"))
+    .expect("Couldn't write bindings!");
+\end{lstlisting}
+
+The build script places the generated bindings in a file called bindings.rs in the cargo build directory.
+To include this file in our main Rust code we create a new source file that includes the bindings:
+\begin{lstlisting}[language=Rust,style=colouredRust]
+#![allow(non_upper_case_globals)]
+#![allow(non_camel_case_types)]
+#![allow(non_snake_case)]
+#![allow(improper_ctypes)]
+#![allow(unused)]
+
+include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+\end{lstlisting}
+Because the bindings will use the C++ type and function names we would get a lot of warnings for not following Rust naming conventions.
+To ignore the warnings we add some allow directives to the file.
+
+Compiling and configuring Circle works like this:
+Obtain the source code for Circle either from a tarball or the repository, we used the Step46 tag as it was the latest at the time of writing.
+Inside of the circle source directory execute the following commands:
+\begin{verbatim}
+./configure --raspberrypi 4 --prefix aarch64-none-elf-
+./makeall
+\end{verbatim}
+
+To create a bootable binary from this we need to create a suitable main.rs and .cargo/config.toml.
+Both are very similar to what we already saw in the \nameref{sec:concept_and_implementation:bare-metal:boot} chapter, so we will show only the differences here.
+In the .cargo/config.toml we only change the compile flags to use Circle's linker script and .init section as the boot function.
+Circle's linker script is not as simplistic as ours was, because it provides the necessary sections for static variables, constants and a heap.
+The .init section is defined in the main circle library and provides a bootup function that initializes the .bss and .data sections correctly by zeroing them and copying any constants to RAM.
+\begin{verbatim}
+...
+rustflags = ["-C", "link-args=--section-start=.init=0x80000 -Tcircle.ld"]
+...
+\end{verbatim}
+
+In the main.rs instead of the \_start function we create a function called main with the type void $\rightarrow$ int,
+because Circle links to such a function in order to call it after the bootup initilization is done.
+\begin{lstlisting}[language=Rust,style=colouredRust]
+...
+#[no_mangle]
+pub unsafe extern "C" fn main() -> c_int {
+    ffi::reboot()
+}
+...
+\end{lstlisting}
+
+Building the final binary works the same as in \nameref{sec:concept_and_implementation:bare-metal:boot}.
+This leaves only one final step to make the Raspberry Pi boot our Rust binary.
+As mentioned int the Rpi boot process we need the start4.elf, fixup4.dat, bcm2711-rpi-4-b.dtb and config.txt files on the final SD card or USB stick.
+These can be obtained from the official Raspberry Pi repository, but circle can download them for us.
+To download them through circle call make in the circle/boot directory.
+
+\subsection{The final implementation}
 
 \section{Rust native HAL}
 \label{sec:concept_and_implementation:hal}
+
+Instead of using an foreign language library like Circle for this project we could also have written our own Rust native HAL.
+This would provide several key benefits:
+\begin{itemize}
+    \item Vastly simpler build process, completely eliminating the need for the C toolchain
+    \item Upholding Rusts memory safety guarantees, which we largely lost/ignored when using Circle
+    \item Possibly higher performance because we could use link time optimization on the entire program
+    \item Access to any Rust crate that depends on an embedded-hal implementation.
+\end{itemize}
+
+In order to understand why we chose against this approach let us look at the complexity it already takes to implement a HAL just for the GPIO pins of the Raspberry Pi.
+A pure native Rust stack for the Raspberry Pi 4 would consist out of the following components:
+\begin{enumerate}
+    \item A Peripheral Access Crate (PAC) that contains all the memory addresses for the memory mapped IO. This can be generated using svd2rust from an svd file.
+    \item A HAL crate that implements the embedded-hal traits, embedded-io traits for uart, dma, pcie and a critical section implementation for the bcm2711 processor.
+    \item A Board Support Crate/Package (BSP) that contains board but not processor specific implementations, such as the boot process, usb and ethernet.
+\end{enumerate}
+
+Forunately Broadcom provides the svd files for their processors and someone already has generated a PAC from them and published it on crates.io.
+From the HAL we implemented the GPIO pins as well as single core critical sections and from the BSP we implemented an entry macro to mark the boot function and a linker script that supports the .data and .bss sections.
+
+For the HAL gpio implementation we need to take the GPIO struct from the PAC that contains all addresses of the IO registers and use it to create a new pin type that implements the embedded-hal traits.
+GPIO pins on the Raspberry Pi can be in input, output and alternate function mode. These modes can be switched through the fsel (function select) registers.
+In C one would have to check at runtime if a pin is in the correct mode before using it.
+By modelling the modes as type parameters in Rust we can check at compile time that functions only use pins in the correct mode, with obvious benefits for performance and binary size.
+
+\begin{lstlisting}[language=Rust,style=colouredRust]
+use core::marker::PhantomData;
+
+pub trait GpioExt {
+    type Parts;
+
+    fn split(self) -> Self::Parts;
+}
+
+pub struct Unknown;
+
+pub struct Input<MODE> {
+    _mode: PhantomData<MODE>,
+}
+
+pub struct Floating;
+pub struct PullDown;
+pub struct PullUp;
+
+pub struct Output;
+
+use bcm2711_lpa::GPIO;
+use embedded_hal as hal;
+use core::convert::Infallible;
+
+pub struct Parts {
+    pub pin0: Pin0<Unknown>,
+}
+
+impl GpioExt for GPIO {
+    type Parts = Parts;
+
+    fn split(self) -> Parts {
+        Parts {
+            pin0: Pin0 { _mode: PhantomData },
+        }
+    }
+}
+
+pub struct Pin0<MODE> {
+    _mode: PhantomData<MODE>,
+}
+\end{lstlisting}
+
+The Pin0 type can be now differentiated into Pin0<Output>, Pin0<Unknown>, Pin0<Input<Floating>>, Pin0<Input<PullDown>> and Pin0<Input<PullUp>>.
+For these types we can now implement constructors to switch between the types:
+
+\begin{lstlisting}[language=Rust,style=colouredRust]
+impl<MODE> Pin0<MODE> {
+    pub fn into_input(self) -> Pin0<Input<Floating>> {
+        unsafe { (*GPIO::PTR).gpio_pup_pdn_cntrl_reg0().set_bits(|w| {w.gpio_pup_pdn_cntrl0().none()})}
+
+        unsafe { (*GPIO::PTR).gpfsel0().set_bits(|w| {w.fsel0().input()}) };
+
+        Pin0 { _mode: PhantomData }
+    }
+
+    pub fn into_input_pulldown(self) -> Pin0<Input<PullDown>> {
+        unsafe { (*GPIO::PTR).gpio_pup_pdn_cntrl_reg0().set_bits(|w| {w.gpio_pup_pdn_cntrl0().down()})}
+
+        unsafe { (*GPIO::PTR).gpfsel0().set_bits(|w| {w.fsel0().input()}) };
+
+        Pin0 { _mode: PhantomData }
+    }
+
+    pub fn into_input_pullup(self) -> Pin0<Input<PullUp>> {
+        unsafe { (*GPIO::PTR).gpio_pup_pdn_cntrl_reg0().set_bits(|w| {w.gpio_pup_pdn_cntrl0().up()})}
+
+        unsafe { (*GPIO::PTR).gpfsel0().set_bits(|w| {w.fsel0().input()}) };
+
+        Pin0 { _mode: PhantomData }
+    }
+
+    pub fn into_output(self) -> Pin0<Output> {
+        unsafe { (*GPIO::PTR).gpfsel0().set_bits(|w| {w.fsel0().output()})}
+
+        P0i { _mode: PhantomData }
+    }
+
+    pub fn into_output_low(self) -> Pin0<Output> {
+        unsafe { (*GPIO::PTR).gpfsel0().set_bits(|w| {w.fsel0().output()})}
+
+        P0i { _mode: PhantomData }
+    }
+
+    pub fn into_output_high(self) -> Pin0<Output> {
+        unsafe { (*GPIO::PTR).gpfsel0().set_bits(|w| {w.fsel0().output()})}
+
+        P0i { _mode: PhantomData }
+    }
+}
+\end{lstlisting}
+
+Note the actual register write operations, the raw address,
+the bit offset as well as the written value have all been transformed into constants and methods when generating the PAC.
+Because these are writes to arbitrary memory adresses, they are unsafe.
+But, in contrast to the circle implementation, we are not using unsafe here because we don't care about memory safety,
+but rather for its intended purpose to tell the compiler that we checked we are upholding all the safety guarantees.
+In this case the register writes are safe for two reasons.
+For one, we know that there will never be unrelated data at this address, as it is hardwired to the MMIO.
+Second, set\_bits() is atomic so we don't get race conditions from multiple pins using the same fsel register switching their modes.
+This leaves implementing the embedded-hal traits for the pins. For a normal gpio pin these are InputPin with is\_high() and is\_low() as well as OutputPin with set\_high() and set\_low().
+
+\begin{lstlisting}[language=Rust,style=colouredRust]
+impl<MODE> hal::digital::InputPin for Pin0<Input<MODE>> {
+    fn is_high(&mut self) -> Result<bool, Self::Error>{
+        Ok(unsafe{ (*GPIO::PTR).gplev0().read().lev0().bit_is_set() })
+    }
+
+    fn is_low(&mut self) -> Result<bool, Self::Error> {
+        Ok(unsafe{ (*GPIO::PTR).gplev0().read().lev0().bit_is_clear() })
+    }
+}
+
+impl<MODE> hal::digital::ErrorType for Pin0<MODE> {
+    type Error = Infallible;
+}
+
+impl hal::digital::OutputPin for Pin0<Output> {
+    fn set_low(&mut self) -> Result<(), Self::Error> {
+        Ok(unsafe{ (*GPIO::PTR).gpset0().write_with_zero(|w| {w.set0().set_bit()}) })
+    }
+
+    fn set_high(&mut self) -> Result<(), Self::Error> {
+        Ok(unsafe{ (*GPIO::PTR).gpclr0().write_with_zero(|w| {w.clr0().clear_bit_by_one()}) })
+    }
+}
+\end{lstlisting}
+
