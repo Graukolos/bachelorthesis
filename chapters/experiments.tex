@@ -199,7 +199,8 @@ Most important for our purposes are the average and worst case times.
 \end{table}
 
 To better visualize this and better understand the behavior of any outliers we have depicted the iteration times both in a histogram as well as the raw data points.
-The iteration time graphs allow for a better understanding of the relative difference between a normal iteration an the outlier ones, but due to the amount of datapoints obscure how often or rare these outlier actually occur.
+The iteration time graphs allow for a better understanding of the relative difference between a normal iteration and the outlier ones,
+but due to the amount of datapoints obscure how often or rare these outlier actually occur.
 In order to overcome this downside we have the histogram with a logarithmic scale
 
 \makeatletter
@@ -209,7 +210,7 @@ In order to overcome this downside we have the histogram with a logarithmic scal
 }
 \makeatother
 
-\begin{figure}[ht]
+\begin{figure}
   \begin{center}
     \begin{minipage}{0.48\textwidth}
       \begin{center}
@@ -229,7 +230,7 @@ In order to overcome this downside we have the histogram with a logarithmic scal
   \end{center}
 \end{figure}
 
-\begin{figure}[ht]
+\begin{figure}
   \begin{center}
     \begin{minipage}{0.48\textwidth}
       \begin{center}
@@ -249,7 +250,7 @@ In order to overcome this downside we have the histogram with a logarithmic scal
   \end{center}
 \end{figure}
 
-\begin{figure}[ht]
+\begin{figure}
   \begin{center}
     \begin{minipage}{0.48\textwidth}
       \begin{center}
@@ -269,7 +270,7 @@ In order to overcome this downside we have the histogram with a logarithmic scal
   \end{center}
 \end{figure}
 
-\begin{figure}[ht]
+\begin{figure}
   \begin{center}
     \begin{minipage}{0.48\textwidth}
       \begin{center}
@@ -291,3 +292,42 @@ In order to overcome this downside we have the histogram with a logarithmic scal
 
 \section{Interpretation}
 
+There are two different things here to analyze.
+First, the difference between the bare-metal and linux version.
+All of the linux based versions have average execution times of an order of magnitude more than the bare-metal version,
+which leaves the question:
+Is this speed difference adequately explained by the linux version having to switch the execution context to the kernel and back for the PWM and SPI kernel drivers?
+To answer this properly, we profiled a run of the default linux version, the result can be seen in \ref{fig:experiments:flamegraph}.
+From this we can see that most of the time (84.12\%) is spent setting the duty cycle, which in turn means that the context switching overhead is not the issue.
+If it was, we would see close to the same duration for SPI and getting the system time, as we see for PWM.
+This can have one of two causes:\\
+The linux kernel PWM driver is very slow.
+Or, the rppal implementation of set\_duty\_cycle() is not optimal,
+either because it does extra steps not needed for our case,
+or talks to the kernel in an inefficient way.
+Of these two the second one is more likely for two reasons,
+code in the linux kernel gets significantly more exposure and testing than rppal and the Circle PWM source code states,
+that it is heavily inspired by the linux implementation.
+If the reason is indeed that rppal could have been programmed differently for this task,
+a significant speedup could be achieved.
+Assuming the set\_duty\_cycle() was as fast as the SPI transfer,
+which would be reasonable as the spi transfer has to write and read to memory and the duty cycle function only has to do one write,
+the linux version times would come down to roughly 15us,
+putting it in a very comparable ballpark as the bare-metal version.
+
+\begin{figure}
+  \begin{center}
+    \includegraphics[width=\textwidth]{assets/os-default/flamegraph.png}
+    \caption{A flamegraph for the default linux version, with times spent inside of each function}
+    \label{fig:experiments:flamegraph}
+  \end{center}
+\end{figure}
+
+The second part of the results that is worth analyzing is the comparison of the linux version with each other.
+The goal of reducing the worst case latencies on linux has failed.
+Every one of the linux versions has regular lag spikes to over an order of magnitude more than the average iteration time.
+The isolated core and realtime versions that we hoped would reduce this behavior show very similar behavior as the stock version for iteration times under 1ms,
+but additionally have rare spikes up in the 2-2.5ms region.
+
+With both of these results in mind it is safe to say that the bare-metal version is the one more suited for the target application,
+as regular reaction time spikes of almost a microsecond are just not acceptable and the lower average iteration times are preferable.
