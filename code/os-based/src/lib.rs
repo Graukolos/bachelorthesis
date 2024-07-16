@@ -46,7 +46,7 @@ fn get_position(spi: &mut Spi) -> f64 {
     let mut buf = [SDAD_TRANSMISSION, 0, 0, 0, 0];
 
     spi.transfer_in_place(&mut buf).unwrap();
-    let position = u32::from_be_bytes(buf[1..].try_into().unwrap());
+    let position = u32::from_be_bytes(buf[1..].try_into().unwrap()) >> 13;
 
     position as f64
 }

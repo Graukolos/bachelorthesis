@@ -53,31 +53,13 @@ and is a good primer on how linking to external code works in Rust which will be
 
 Rust projects are built using the Cargo build system. This allows us to add rppal into the compilation process by editing our projects Cargo.toml file.
 
-\begin{verbatim}
-[package]
-name = "os-based"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-ctrlc = "3.4.4"
-embedded-hal = "1.0.0"
-pid-ctrl = "0.1.4"
-rppal = { version = "0.18.0", features = ["hal"] }
-
-[profile.release]
-lto = true
-\end{verbatim}
+\lstinputlisting[]{code/os-based/Cargo.toml}
 
 This pulls the rppal source code from crates.io and builds it together with our program and links the two afterwards.
 Alternatively we could have specified a link or path to a custom version of rppal if that were needed.
 Setting up the devices is then done by including the relevant types and creating instances of them.
 
-\begin{lstlisting}[language=Rust,style=colouredRust]
-use rppal::{spi::Spi, pwm::Pwm};
-Spi::new(Bus::Spi0, SlaveSelect::Ss0, 20_000_000, Mode::Mode0).unwrap();
-Pwm::with_frequency(Channel::Pwm0, 1_000., 0.5, Polarity::Normal, false).unwrap();
-\end{lstlisting}
+\lstinputlisting[language=Rust,style=colouredRust,linerange={5-9,36-42}]{code/os-based/src/lib.rs}
 
 On a stock Raspberry Pi 4 with Raspberry Pi OS this would still fail, because by default the spi and pwm device tree overlays are not enabled.
 In order to enable them we need to set dtparam=spi=on in /boot/firmware/config.txt for spi and dtoverlay=pwm for pwm.
@@ -92,13 +74,7 @@ The format and length of the position is dependent on several configuration valu
 In the default configuration this is 19 bits of actual position data with five zeros added as padding.
 In Rust the transmission looks like this:
 
-\begin{lstlisting}[language=Rust,style=colouredRust]
-const SDAD_TRANSMISSION: u8 = 0xa6;
-let mut buf = [SDAD_TRANSMISSION, 0, 0, 0, 0];
-
-spi.transfer_in_place(&mut buf).unwrap();
-let position = u32::from_be_bytes(buf[1..].try_into().unwrap()) >> 13;
-\end{lstlisting}
+\lstinputlisting[language=Rust,style=colouredRust,linerange={44-52}]{code/os-based/src/lib.rs}
 
 Here we transmit by writing in the same buffer that we are reading from for sending, which means we need four bytes of space, one for the opcode and 3 for the data.
 To make converting to an integer easier we add a fifth byte, so we can just interpret the last 32 bits of the buffer as our position.
@@ -111,22 +87,12 @@ For now, we will implement a simple PID controller that stays the same between t
 
 For this we decided on the pid-ctrl library to be used, as it is easy to use, works on bare-metal and supports differing time deltas.
 
-The process of including it is analogous to rppal. In fact in the \nameref{sec:concept_and_implementation:linux:rppal} chapter, we already included it in our build process.
-So all that is to do is to use it in our code.
+The process of including it is analogous to rppal.
+In fact in the \nameref{sec:concept_and_implementation:linux:rppal} chapter,
+we already included it in our build process and created an instance of the Pid type.
+So all that is to do is to use it inside our main loop.
 
-\begin{lstlisting}[language=Rust,style=colouredRust]
-let mut pid = PidCtrl::new_with_pid(10., 1., 5.);
-
-loop {
-    ...
-    let position = get_position(spi);
-    pid.setpoint = get_setpoint();
-    let output = pid
-        .step(pid_ctrl::PidIn::new(position, iteration_time.as_secs_f64()))
-        .out;
-    ...
-}
-\end{lstlisting}
+\lstinputlisting[language=Rust,style=colouredRust,linerange={10-34}]{code/os-based/src/lib.rs}
 
 \section{Bare-Metal}
 \label{sec:concept_and_implementation:bare_metal}
@@ -183,13 +149,13 @@ Arm provides precompiled toolchains for C so we will use the latest one provided
 
 There is one final thing to do, when linking to external binaries Rust uses \$\{target\}-gcc as the linker, so in our case aarch64-unknown-none-gcc.
 To use aarch64-none-elf-ld instead which we got from Arm in our project directory we add a .cargo/config.toml file with the following content:
-\begin{verbatim}
+\begin{lstlisting}
 [target.aarch64-unknown-none]
 linker = "aarch64-none-elf-ld"
 
 [build]
 target = "aarch64-unknown-none"
-\end{verbatim}
+\end{lstlisting}
 The linker line sets the linker to the correct binary and the target lines changes the default target when using cargo.
 
 \subsection{Bootup process of the Raspberry Pi 4}
@@ -211,17 +177,17 @@ To produce a bootable rust binary we start from a clean project folder generated
 This clean project contains a Cargo.toml for the build system configuration and a src/main.rs with the actual code.
 
 First we will add a .cargo/config.toml similar to what we saw in \nameref{sec:concept_and_implementation:bare-metal:cross}.
-\begin{verbatim}
+\begin{lstlisting}
 [target.aarch64-unknown-none]
 linker = "aarch64-none-elf-ld"
 rustflags = ["-C", "link-arg=Tlink.ld"]
     
 [build]
 target = "aarch64-unknown-none"
-\end{verbatim}
+\end{lstlisting}
 The added rustflags line allows us to control which logical addressess code is placed at in the linking step.
 To control this we create link.ld:
-\begin{verbatim}
+\begin{lstlisting}
 SECTIONS
 {
     . = 0x80000;
@@ -231,7 +197,7 @@ SECTIONS
         *(.text*)
     }
 }
-\end{verbatim}
+\end{lstlisting}
 The .text section of a binary is where the actual instructions lie as opposed to .data and .bss.
 What we are doing here is keeping all of the segments in .text, placing .text.\_start at the beginning of .text and let .text begin at 0x80000.
 As we already discussed 0x80000 is the address to which the Raspberry Pi jumps after loading the kernel.
@@ -381,42 +347,10 @@ For all this we have placed the circle source code in the circle directory in ou
 We will take a more detailed look at configuring and compiling circle soon, but for now the focus is on the build script.
 
 The linker search path is expanded like this:
-\begin{lstlisting}[language=Rust,style=colouredRust]
-let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-println!(
-    "cargo:rustc-link-search={}",
-    manifest_dir.join("circle").display()
-); // for circle.ld
-println!(
-    "cargo:rustc-link-search={}",
-    manifest_dir.join("circle/lib/usb").display()
-); // for libusb.a
-println!(
-    "cargo:rustc-link-search={}",
-    manifest_dir.join("circle/lib/input").display()
-); // for libinput.a
-println!(
-    "cargo:rustc-link-search={}",
-    manifest_dir.join("circle/lib/fs/fat").display()
-); // for libfatfs.a
-println!(
-    "cargo:rustc-link-search={}",
-    manifest_dir.join("circle/lib/fs").display()
-); // for libfs.a
-println!(
-    "cargo:rustc-link-search={}",
-    manifest_dir.join("circle/lib").display()
-); // for libcircle.a
-\end{lstlisting}
+\lstinputlisting[language=rust,style=colouredRust,linerange={1-29}]{code/bare-metal/build.rs}
 
 Then we link to the binaries mentioned in the above code:
-\begin{lstlisting}[language=Rust,style=colouredRust]
-println!("cargo:rustc-link-lib=usb");
-println!("cargo:rustc-link-lib=input");
-println!("cargo:rustc-link-lib=fatfs");
-println!("cargo:rustc-link-lib=fs");
-println!("cargo:rustc-link-lib=circle");
-\end{lstlisting}
+\lstinputlisting[language=rust,style=colouredRust,linerange={31-35}]{code/bare-metal/build.rs}
 
 Generating the bindings is simple thanks to bindgen, we generate bindings for all symbols in wrapper.hpp,
 a file that we will write where we include all the headers interesting to us.
@@ -424,37 +358,12 @@ Notable are the use\_core() and vtable\_generation(true) methods.
 Use\_core() tells bindgen to use only types from the core library instead of std in the bindings, which is necessary for us as we are targeting a bare-metal environment.
 Vtable\_generation(true) enables generating types for the vtables of C++ classes.
 This allows us to make calls to inherited functions of classes.
-\begin{lstlisting}[language=Rust,style=colouredRust]
-let bindings = Builder::default()
-    .header("wrapper.hpp")
-    .use_core()
-    .clang_arg(format!(
-        "-I{}",
-        manifest_dir.join("circle/include").display()
-    ))
-    .vtable_generation(true)
-    .default_macro_constant_type(MacroTypeVariation::Signed)
-    .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
-    .generate()
-    .expect("Unable to generate bindings");
-
-let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
-bindings
-    .write_to_file(out_path.join("bindings.rs"))
-    .expect("Couldn't write bindings!");
-\end{lstlisting}
+\lstinputlisting[language=rust,style=colouredRust,linerange={37-54}]{code/bare-metal/build.rs}
 
 The build script places the generated bindings in a file called bindings.rs in the cargo build directory.
 To include this file in our main Rust code we create a new source file that includes the bindings:
-\begin{lstlisting}[language=Rust,style=colouredRust]
-#![allow(non_upper_case_globals)]
-#![allow(non_camel_case_types)]
-#![allow(non_snake_case)]
-#![allow(improper_ctypes)]
-#![allow(unused)]
+\lstinputlisting[language=Rust,style=colouredRust]{code/bare-metal/src/ffi.rs}
 
-include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
-\end{lstlisting}
 Because the bindings will use the C++ type and function names we would get a lot of warnings for not following Rust naming conventions.
 To ignore the warnings we add some allow directives to the file.
 
@@ -495,6 +404,28 @@ These can be obtained from the official Raspberry Pi repository, but circle can 
 To download them through circle call make in the circle/boot directory.
 
 \subsection{The final implementation}
+\label{sec:concept_and_implementation:bare-metal:implementation}
+
+With all the pieces in the right places, we can write the actual application.
+Similar to the linux version, we start by setting up Spi and Pwm and afterwards start the infinite control loop.
+To setup Spi and Pwm, we use the C++ constructors, which are translated by bindgen into the ClassName::new() functions.
+In addition we need to set pin 18 into alternate function mode 5, so it is wired up to the PWM signal from the PWM controller.
+Which alternate function mode we need can be found in the bcm2711 datasheet or the Circle documentation.
+
+\lstinputlisting[language=rust,style=colouredRust,linerange={63-74,80-86}]{code/bare-metal/src/main.rs}
+
+The actual control loop is almost identical to the linux version, with the only differences being the way to get the time and the different syntax of setting the PWM duty cycle.
+To measure the iteration time deltas, we use Circle's CTimer class. The accuracy of this clock will be discussed in more detail in \nameref{sec:experiments:methodology}.
+Setting the PWM duty cycle works a bit different in Circle than in rppal,
+in rppal we express the target value through a float in the range of 0 to 1,
+which aligns nicely with the output of the pid library.
+Circle instead expect us to set a granularity at device initialization and then an integer value of 0 to granularity.
+We used a granularity of 1024 steps, and clamp it because Circle will just segfault on a too high value, which could not happen in pure Rust.
+
+\lstinputlisting[language=Rust,style=colouredRust,linerange={92-95,161-179}]{code/bare-metal/src/main.rs}
+
+As Circle also doesn't provide an inplace SPI send-receive, we also need to change the get\_position() function a bit to use two buffers instead of one.
+\lstinputlisting[language=Rust,style=colouredRust,linerange={182-199}]{code/bare-metal/src/main.rs}
 
 \section{Rust native HAL}
 \label{sec:concept_and_implementation:hal}
@@ -617,9 +548,9 @@ impl<MODE> Pin0<MODE> {
 }
 \end{lstlisting}
 
-Note the actual register write operations, the raw address,
+Note the actual register write operations: the raw address,
 the bit offset as well as the written value have all been transformed into constants and methods when generating the PAC.
-Because these are writes to arbitrary memory adresses, they are unsafe.
+Because these are writes to arbitrary memory adresses, they are unsafe by Rusts memory model.
 But, in contrast to the circle implementation, we are not using unsafe here because we don't care about memory safety,
 but rather for its intended purpose to tell the compiler that we checked we are upholding all the safety guarantees.
 In this case the register writes are safe for two reasons.
@@ -653,3 +584,39 @@ impl hal::digital::OutputPin for Pin0<Output> {
 }
 \end{lstlisting}
 
+In order to actually use this code the control flow would look like this:
+
+\begin{lstlisting}[language=Rust,style=colouredRust]
+let peripherals = hal::pac::Peripherals::take().unwrap();
+let gpio = peripherals.GPIO.split()
+let pin0 = gpio.pin0;
+let output_pin = pin0.into_output();
+pin0.set_high();
+\end{lstlisting}
+
+The Peripherals::take() method is generated by the PAC and is used to ensure that only one execution path can gain control over the peripherals initially.
+But for the internal check if the peripherals have already been taken to work svd2rust requires an implementation of the CriticalSection trait.
+Critical section as the name already implies is supposed to provide an environment where the execution cannot be interrupted.
+Implementing CriticalSection consists of the two methods acquire() and release().
+Since the bcm2711 is a multicore CPU implementing these would usually mean writing a spinlock,
+but for simpilicity we will force the user to only use a single core, which means that we only have to disable all interrupts,
+which is possible with a aarch64 specific assembly instruction.
+
+\lstinputlisting[language=Rust,style=colouredRust]{code/hal/src/critical_section.rs}
+
+By default the bootup function from address 0x80000 is executed on all four cores,
+so if we want to allow only single core execution we must halt the exeuction flow on the other cores.
+
+To do this we run a check on the MPIDR\_EL1 register which is a aarch64 specific register contains the id of the current virtual core.
+Only if it is zero and we are on the first core, we continue with the user provided \_\_start\_rust function.
+If we are on another core we halt execution by waiting for an interrupt.
+
+\lstinputlisting[language=Rust,style=colouredRust,linerange={1-18}]{code/hal/src/entry.rs}
+
+In total this Rust native approach would allow an application to be written with minimal effort,
+including the BSP as a dependency in cargo would take care of all the linking intricacies,
+and the actual code would be almost the same as in the linux based version.
+Because Spi and Pwm are abstracted behind the embedded-hal traits one could even use a shared code base with a linux version for rapid development
+and an embedded version for the final version.
+But implementing this fully would require a further, extremely detailed understanding of the inner working of the bcm2711,
+how to operate the DMAs to communicate with the SPI controller, the SPI controller itself and the PWM controller.
