@@ -7,42 +7,42 @@
 \label{chap:concept_and_implementation}
 
 Now for the actual implementation:\\
-We will first consider the general control flow of our application, both for the bare-metal and OS based version.
-For the Linux version specifically we will then compare multiple approaches to optimize the OS both in terms of average performance as well as worst case latencies.
-These different versions will later be compared to the bare-metal version in the \nameref{chap:experiments} chapter.
+We will first consider the general control flow of our application, both for the bare-metal and OS based versions.
+For the Linux version specifically, we will then compare multiple approaches to optimize the OS both in terms of average performance as well as worst-case latencies.
+These different versions will be compared later to the bare metal version in the \nameref{chap:experiments} chapter.
 The bare-metal version demands a more detailed look, as it is the focus of this thesis.
-For the bare-metal version we will first look at the bootup process on the Raspberry Pi and how to produce a Rust binary that successfully boots.
-From that we will continue with how the bindings to Circle were created as well as how and why an abstraction on top of it was written to make the underlying C code adhere to Rusts safety guarantees.
+For the bare-metal version, we will first look at the bootup process on the Raspberry Pi and how to produce a Rust binary that successfully boots.
+From that we will continue with how the bindings to Circle were created as well as how and why an abstraction on top of it was written to make the underlying C code adhere to Rust's safety guarantees.
 
 \section{The Control Loop}
 \label{sec:concept_and_implementation:control_flow}
 
-The general control flow follows the principle of a super loop.
-On startup we initialize the communication hardware and from there on it's just a fetch, compute, update loop.
-In the fetch step we get the current position of the actuator as well as the control value and the time passed since the last cycle.
+The general control flow follows the principle of a superloop.
+On startup we initialize the communication hardware and from there on it is just a fetch, compute, update loop.
+In the fetch step, we get the current position of the actuator, the control value and the time since the last cycle.
 The position is fetched through SPI from the IC-MU and the duration since the last cycle from a CPU timer.
-For increased reproducability we will mock an external control value input by replacing it with a fixed signal based on timers on the Raspberry Pi.
-In the compute step we apply those values to our PID-controller formula in order to get the new output value.
-Last, in the update step, we update the duty cycle of the output PWM signal based on the just computed output value.
+For increased reproducibility, we will mock an external control value input by replacing it with a fixed signal based on timers on the Raspberry Pi.
+In the compute step, we apply those values to our PID-controller formula to get the new output value.
+Finally, in the update step, we update the duty cycle of the output PWM signal based on the just computed output value.
 
 \section{Linux based version}
 \label{sec:concept_and_implementation:linux}
 
-Interacting with the SPI and PWM hardware on linux works through the spidev character device in /dev/spidev0.0 and the pwm interface in /sys/class/pwm .
+Interacting with the SPI and PWM hardware on Linux works through the spidev character device in /dev/spidev0.0 and the pwm interface in /sys/class/pwm.
 For Rust there exists a library called rppal that provides a simple interface for interacting with these.
-Because of this, it will be used for the linux versions.
+Because of this, it will be used for the Linux versions.
 
 \subsection{Approaches to minimize jitter}
 \label{sec:concept_and_implementation:linux:approaches}
 
-In order to give the linux version the best chance to compete with the bare-metal version we try two optimization approaches.
-First, we tell the linux scheduler to reserve an entire core for our program, so that it is never moved between cores and never interrupted by core local interrupts.
-By this we aim to improve the worst case iteration times without changing the average case.
-In an attempt to go even further we will also try a linux kernel with the PREEMPT\_RT patchset,
-which replaces the scheduler by a realtime capable one and makes every section of the kernel preemptible.
+In order to give the Linux version the best chance to compete with the bare-metal version, we try two optimization approaches.
+First, we tell the Linux scheduler to reserve an entire core for our program, so that it is never moved between cores and never interrupted by core local interrupts.
+By this we aim to improve the worst-case iteration times without changing the average case.
+In an attempt to go even further we will also try a Linux kernel with the PREEMPT\_RT patchset,
+which replaces the scheduler by a real-time capable one and makes every section of the kernel preemptible.
 The idea behind this is that even the parts of our program that run in kernel space,
 by making syscalls to the spi and pwm kernel drivers, run at a higher priority than other kernel tasks.
-To verify if our approaches made any significant difference we will also be running an unmodified stock kernel with our program at default priority.
+To verify if our approaches made any significant difference, we will also be running an unmodified stock kernel with our program at default priority.
 
 \subsection{Setup with rppal}
 \label{sec:concept_and_implementation:linux:rppal}
@@ -56,49 +56,49 @@ Rust projects are built using the Cargo build system. This allows us to add rppa
 \lstinputlisting[]{code/os-based/Cargo.toml}
 
 This pulls the rppal source code from crates.io and builds it together with our program and links the two afterwards.
-Alternatively we could have specified a link or path to a custom version of rppal if that were needed.
-Setting up the devices is then done by including the relevant types and creating instances of them.
+Alternatively, we could have specified a link or path to a custom version of rppal if that were needed.
+Then, setting up the devices is done by including the relevant types and creating instances of them.
 
 \lstinputlisting[language=Rust,style=colouredRust,linerange={5-9,36-42}]{code/os-based/src/lib.rs}
 
 On a stock Raspberry Pi 4 with Raspberry Pi OS this would still fail, because by default the spi and pwm device tree overlays are not enabled.
-In order to enable them we need to set dtparam=spi=on in /boot/firmware/config.txt for spi and dtoverlay=pwm for pwm.
+In order to enable them, we need to set dtparam=spi=on in /boot/firmware/config.txt for spi and dtoverlay=pwm for pwm.
 
 \subsection{Getting the current position}
 
-In \nameref{sec:background:hardware:spi} and \nameref{sec:background:hardware:ic-mu} we have already seen how SPI and the position encoder that we are using work.
-This leaves us with how to transmit the actual position data.
+In \nameref{sec:background:hardware:spi} and \nameref{sec:background:hardware:ic-mu} we have already seen how SPI and the position encoder that we use work.
+This leaves us with the question of how to transmit the actual position data.
 The position transmission is initiated by the SPI master by sending the SDAD\_TRANSMISSION opcode.
-The IC-MU chip answers by echoing the opcode and appending the position.
-The format and length of the position is dependent on several configuration values on the IC-MU, but for our purposes the default configuration is appropriate.
-In the default configuration this is 19 bits of actual position data with five zeros added as padding.
-In Rust the transmission looks like this:
+The IC-MU chip responds by echoing the opcode and appending the position.
+The format and length of the position are dependent on several configuration values on the IC-MU, but for our purposes the default configuration is appropriate.
+In the default configuration, this is 19 bits of actual position data with five zeros added as padding.
+In Rust, the transmission looks like this:
 
 \lstinputlisting[language=Rust,style=colouredRust,linerange={44-52}]{code/os-based/src/lib.rs}
 
-Here we transmit by writing in the same buffer that we are reading from for sending, which means we need four bytes of space, one for the opcode and 3 for the data.
-To make converting to an integer easier we add a fifth byte, so we can just interpret the last 32 bits of the buffer as our position.
-Because the IC-MU sends in big endian we use u32::from\_be\_bytes() for the conversion.
+Here we transmit by writing in the same buffer that we are reading from for sending, which means that we need four bytes of space, one for the opcode and 3 for the data.
+To make converting to an integer easier, we add a fifth byte, so we can just interpret the last 32 bits of the buffer as our position.
+Because the IC-MU sends in big endian, we use u32::from\_be\_bytes() for the conversion.
 
 \subsection{Providing a PID controller}
 
-While is the aim of this thesis to enable flexible implementation of different control schemes, implementing these is not in our scope.
-For now, we will implement a simple PID controller that stays the same between the linux and bare-metal versions.
+While the aim of this thesis is to enable flexible implementation of different control schemes, implementing these is not in our scope.
+For now, we will implement a simple PID controller that stays the same between the Linux and bare-metal versions.
 
-For this we decided on the pid-ctrl library to be used, as it is easy to use, works on bare-metal and supports differing time deltas.
+For this we decided on the pid-ctrl library to be used, as it is easy to use, works on bare-metal, and supports differing time deltas.
 
 The process of including it is analogous to rppal.
 In fact in the \nameref{sec:concept_and_implementation:linux:rppal} chapter,
 we already included it in our build process and created an instance of the Pid type.
-So all that is to do is to use it inside our main loop.
+So, all that is to do is to use it inside our main loop.
 
 \lstinputlisting[language=Rust,style=colouredRust,linerange={10-34}]{code/os-based/src/lib.rs}
 
 \section{Bare-Metal}
 \label{sec:concept_and_implementation:bare_metal}
 
-Bare metal programming is traditionally something reserved for microcontrollers or os kernels.
-While the Raspberry Pi 4 very much isn't a microcontroller but a fully fledged PC capable of running desktop class operating systems,
+Bare metal programming is traditionally something reserved for microcontrollers or OS kernels.
+While the Raspberry Pi 4 is not a microcontroller but a fully fledged PC capable of running desktop class operating systems,
 its simple boot process and access to low level IO such as $I^2C$, SPI and GPIO pins capable of analog input and output still allow it as if it were a microcontroller.
 
 \subsection{HAL vs Circle}
@@ -106,21 +106,21 @@ its simple boot process and access to low level IO such as $I^2C$, SPI and GPIO 
 
 As we have seen in \nameref{sec:background:rust:embedded} the traditional way to program for a microcontroller in Rust
 is to create a library for it that implements all the traits from the embedded-hal crate and a second library for the bootup process.
-Doing that from scratch is as significant task that would exceed the scope of a bachelorthesis by quite a bit.
-But in order to enable a better evaluation of Rust's suitability for embedded systems we will demonstrate how such an implementation would look for the Gpio pins in \nameref{sec:concept_and_implementation:hal}.
-For the actually functional bare-metal program we will be using a different route.
+Doing that from scratch is a significant task that would exceed the scope of a bachelorthesis by quite a bit.
+But in order to enable a better evaluation of Rust's suitability for embedded systems, we will demonstrate how such an implementation would look for the Gpio pins in \nameref{sec:concept_and_implementation:hal}.
+For the actually functional bare-metal program, we will be using a different route.
 The Circle library is a C++ framework that provides bare-metal access to pretty much all of the Rpi's available hardware.
-That means not only Gpio, Spi and I2c, but also the more complex subsystems, such as PCIe, USB, display outputs and ethernet.
+That means not only Gpio, Spi, and I2c, but also the more complex subsystems, such as PCIe, USB, display outputs, and ethernet.
 So we are going to use this library through Rust's Foreign Functions Interface (FFI from now on).
 
 \subsection{Cross compiling for bare-metal aarch64}
 \label{sec:concept_and_implementation:bare-metal:cross}
 
-On linux there are two main ways of obtaining a Rust compiler.
+On Linux there are two main ways to obtain a Rust compiler.
 Through your distributions package manager or through rustup,
-a tool for managing if neccessary multiple versions of rustc, as well as any connected tooling.
-For cross compilers the first option is nearly nonexistent, so we need to use rustup.
-Rustup is easily installed on linux by running the following command.
+a tool for managing if necessary multiple versions of rustc, as well as any connected tooling.
+For cross compilers, the first option is nearly nonexistent, so we need to use rustup.
+Rustup is easily installed on Linux by running the following command.
 \begin{verbatim}
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 \end{verbatim}
@@ -129,22 +129,21 @@ To be able to cross compile to aarch64-unknown-none we run
 rustup target add aarch64-unknown-none
 \end{verbatim}
 For most targets the rustup target add command does two things.
-First it downloads the compiler backend for the new target architecture.
-Second it downloads a precompiled version of the rust standard library for the new target if available.
-Since we are adding a bare-metal target there is no complete standard library, but Rust's standard library is split into three parts of which we can use two.
+First, it downloads the compiler backend for the new target architecture.
+Second, it downloads a precompiled version of the rust standard library for the new target if available.
+Since we are adding a bare-metal target, there is no complete standard library, but Rust's standard library is split into three parts, of which we can use two.
 The lowest and most constraint part is the core library.
 It contains primitive types and operations on them.
 Because this part is built purely on llvm primitives it is available for every target and does not need to be compiled as it lives inside the compiler.
-The second part available to bare-metal systems is the alloc library, this adds types,
-operations and traits that depend on the existence of a memory allocator.
-If we want to use this part we need to provide a memory allocator.
-Fortunately for us Circle provides a malloc and free implementation, which we can use as our allocator.
+The second part available to bare-metal systems is the alloc library, which adds types, operations, and traits that depend on the existence of a memory allocator.
+If we want to use this part, we need to provide a memory allocator.
+Fortunately for us, Circle provides a malloc and free implementation, which we can use as our allocator.
 The third part of the standard library is called std and contains all types that rely on syscalls to the underlying operationg system.
-This means networking, file system access and timing.
+This means networking, file system access, and timing.
 
-If we are only cross compiling rust code this would already be enough.
-But since we also want to compile Circle and then link the final binaries together we need a C cross compiler as well as a linker.
-Arm provides precompiled toolchains for C so we will use the latest one provided by them at the time of writing.
+If we are only cross-compiling rust code this would already be enough.
+But since we also want to compile Circle and then link the final binaries together, we need a C cross compiler as well as a linker.
+Arm provides precompiled toolchains for C, so we will use the latest one provided by them at the time of writing.
 %https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads
 
 There is one final thing to do, when linking to external binaries Rust uses \$\{target\}-gcc as the linker, so in our case aarch64-unknown-none-gcc.
@@ -161,22 +160,22 @@ The linker line sets the linker to the correct binary and the target lines chang
 \subsection{Bootup process of the Raspberry Pi 4}
 \label{sec:concept_and_implementation:bare-metal:boot}
 
-The first part of creating a bare-metal controller is creating a binary that even boots on the Raspberry Pi.
+The first part of creating a bare metal controller is creating a binary that even boots on the Raspberry Pi.
 \begin{enumerate}
     \item The on-chip first stage bootloader is loaded from address 0x60000000
-    \item It checks if a recovery.bin is present on the first FAT32 partition of the SD-card. If it is found it is flashed to the onboard EEPROM chip and the Rpi is rebooted.
+    \item It checks if a recovery.bin is present on the first FAT32 partition of the SD-card. If it is found, it is flashed to the onboard EEPROM chip and the Rpi is rebooted.
     \item Else it loads the second stage bootloader and its configuration from the EEPROM
     \item The second stage bootloader loads the third stage bootloader either from the SD-card, a USB storage device or the network, depending on the configuration.
-          The third stage bootloader is split into the binary start4.elf, the relocation table fixup4.dat and config.txt for the configuration.
-    \item The third stage bootloader loads the kernel image and jumps to address 0x80000. By default this is kernel8.img, but the kernel file name can be set in config.txt.
-    \item In some cases this kernel.img may be another bootloader such as u-boot, which could then load grub.
-          This additional boot part is used in many linux distributions, that support uefi boot on aarch64 and not the Raspberry Pi specific chain.
+          The third stage bootloader is split into the binary start4.elf, the relocation table fixup4.dat, and config.txt for the configuration.
+    \item The third stage bootloader loads the kernel image and jumps to address 0x80000. By default, this is kernel8.img, but the kernel file name can be set in config.txt.
+    \item In some cases, this kernel.img may be another bootloader such as u-boot, which could then load grub.
+          This additional boot part is used in many linux distributions that support uefi boot on aarch64 and not the Raspberry Pi specific chain.
 \end{enumerate}
 
 To produce a bootable rust binary we start from a clean project folder generated with cargo new.
 This clean project contains a Cargo.toml for the build system configuration and a src/main.rs with the actual code.
 
-First we will add a .cargo/config.toml similar to what we saw in \nameref{sec:concept_and_implementation:bare-metal:cross}.
+First, we will add a .cargo/config.toml similar to what we saw in \nameref{sec:concept_and_implementation:bare-metal:cross}.
 \begin{lstlisting}
 [target.aarch64-unknown-none]
 linker = "aarch64-none-elf-ld"
@@ -186,7 +185,7 @@ rustflags = ["-C", "link-arg=Tlink.ld"]
 target = "aarch64-unknown-none"
 \end{lstlisting}
 The added rustflags line allows us to control which logical addressess code is placed at in the linking step.
-To control this we create link.ld:
+To control this, we create link.ld:
 \begin{lstlisting}
 SECTIONS
 {
@@ -199,13 +198,13 @@ SECTIONS
 }
 \end{lstlisting}
 The .text section of a binary is where the actual instructions lie as opposed to .data and .bss.
-What we are doing here is keeping all of the segments in .text, placing .text.\_start at the beginning of .text and let .text begin at 0x80000.
-As we already discussed 0x80000 is the address to which the Raspberry Pi jumps after loading the kernel.
-Now for the actual Rust code. Since there is not standard library on bare-metal we need to tell Rust not to link to the standard library.
-This is done by prepending \#\![no\_std] to main.rs.
-The second thing to prepend is \#\![no\_main] because otherwise Rust expects a main function that can be called with the runtime setup required for command line arguments.
-On bare-metal we neither have command line arguments nor a runtime.
-One thing that the standard library used to provide for us was a panic\_handler implementation.
+What we are doing here is keeping all the segments in .text, placing .text.\_start at the beginning of .text and letting .text begin at 0x80000.
+As we already discussed, 0x80000 is the address to which the Raspberry Pi jumps after loading the kernel.
+Now for the actual Rust code. Since there is no standard library on bare metal, we need to tell Rust not to link to the standard library.
+This is done by prepending \#![no\_std] to main.rs.
+The second thing to prepend is \#![no\_main] because otherwise Rust expects a main function that can be called with the runtime setup required for command-line arguments.
+On bare-metal we neither have command-line arguments nor a runtime.
+One thing that the standard library provided for us was a panic\_handler implementation.
 As the name suggests, the panic handler controls panic exceptions.
 On an operating system that typically includes logging the error message to stderr, but for bare-metal Rust expects us to provide an implementation.
 That leaves on final task, writing the function that will actually be run and ensuring that it is linked to the .text.\_start section.
@@ -227,20 +226,20 @@ pub extern "C" fn _start() -> ! {
 }
 \end{lstlisting}
 
-The no\_mangle attribute before the start function tells the Rust compiler not to mangle the function name, which by default it would do.
-The link\_section attribute ensures that our start function is linked to the section we forced in the linker script to be included at address 0x80000.
+The \#[no\_mangle] attribute before the start function tells the Rust compiler not to mangle the function name, which it would do by default.
+The \#[link\_section] attribute ensures that our start function is linked to the section we forced in the linker script to be included at address 0x80000.
 The pub attribute makes the function visible to the linker instead of only to the compiler.
 The extern C attribute tells the compiler to adhere to the C ABI for the start function.
 This is necessary because the Rust ABI is unstable and may be more complicated than jumping to the start address.
 
-At this point we can obtain a binary by running cargo build.
+At this point, we can obtain a binary by running cargo build.
 But this binary would be an elf executable that cannot be executed without a program loader.
 ELF in this context stands for executable-linkable-format and is the file format that linux expects for executable binaries,
 with a header that contains all the relevant information for the dynamic linker.
-The bootloader however just copies the kernel image to RAM and sets the instruction pointer to 0x80000.
+The bootloader, however, just copies the kernel image to RAM and sets the instruction pointer to 0x80000.
 This means that we have to rip out the code from our elf binary and create a flat binary without an elf header.
 The program that does this is called objcopy and is a standard part of the gnu toolchain.
-This means that we already have the correct version aarch64-none-elf-objcopy available from installing the C cross compiler.
+This means that we already have the correct version aarch64-none-elf-objcopy available from installing the C cross-compiler.
 
 \begin{verbatim}
 cargo build --release
@@ -249,7 +248,7 @@ aarch64-none-elf-objcopy -O binary \
     kernel8.img
 \end{verbatim}
 
-When building Rust only bare-metal project there is an easier way to obtain objcopy than to install the complete Gnu toolchain.
+When building a Rust only bare-metal project, there is an easier way to obtain objcopy than to install the complete Gnu toolchain.
 \begin{verbatim}
 rustup component add llvm-tools
 cargo install cargo-binutils
@@ -259,15 +258,15 @@ Which allows to build and extract the binary in one command with any target avai
 cargo objcopy --release -- -O binary kernel8.img
 \end{verbatim}
 
-\subsection{Compiling circle and linking it to Rust}
+\subsection{Compiling Circle and linking it to Rust}
 \label{sec:concept_and_implementation:bare-metal:ffi}
 
-Many languages provide a way to link to C ABI (Application Binary Interface) functions, examples for this are C++ with its extern C, Haskell with its FFI module as well as Python.
-The reasons for this are very simple, for one, the C ABI for each target platform is stable and allows thus to be used as a common language to bridge other languages.
+Many languages provide a way to link to C ABI (Application Binary Interface) functions; examples for this are C++ with its extern C, Haskell with its FFI module, as well as Python.
+The reasons for this are very simple; for one, the C ABI for each target platform is stable and allows thus to be used as a common language to bridge other languages.
 Second, C is still a widely used language with many useful libraries in any field of programming, which can then be used by languages with a C interface.
 
-As Rust is a systems programming language the prevalence of C libraries in areas interesting to Rust is even greater.
-In its most basic form the Rust FFI system works through declaring functions as extern C, when calling Rust functions from C
+As Rust is a systems programming language, the prevalence of C libraries in areas interesting to Rust is even greater.
+In its most basic form, the Rust FFI system works through declaring functions as extern C, when calling Rust functions from C
 and declaring extern C functions in Rust without a definition, when calling C code from Rust.
 
 \begin{lstlisting}[language=Rust,style=colouredRust]
@@ -299,28 +298,28 @@ void calling_rust_from_c(void) {
 }
 \end{lstlisting}
 
-Writing these bindings manually is fine for a handful of functions, but for anything larger in scope some automation would be useful.
-Fortunately there are a few well supported libraries which aim to automate this under different circumstances.
+Writing these bindings manually is fine for a handful of functions, but for anything larger in scope, some automation would be useful.
+Fortunately, there are a few well supported libraries which aim to automate this under different circumstances.
 Bindgen takes in C header files and generates a Rust file with the appropriate extern C declarations from it.
-It works both as a executable for manual use as well as a library that can be integrated into the build process.
+It works both as an executable for manual use and as a library that can be integrated into the build process.
 Since intercompatibility with C code has been important for Rust from the beginning,
 bindgen is an official project maintained under the same umbrella as the compiler and cargo.
 One company that makes heavy use of Rust is Mozilla for their firefox browser.
-Because firefox is mostly written in C the opposite case of bindgen, calling Rust from C code is very common in the firefox codebase.
-As a result Mozilla created cbindgen, which takes in Rust files and creates a C header with declarations for all public functions.
-For interacting with C++ code there are two more libraries, cxx and autocxx.
+Because firefox is mostly written in C, the opposite case of bindgen, calling Rust from C code is very common in the firefox codebase.
+As a result, Mozilla created cbindgen, which takes in Rust files and creates a C header with declarations for all public functions.
+For interacting with C++ code, there are two more libraries, cxx and autocxx.
 Because C++ functions do not neccessarily adhere to the C ABI calling them from Rust and vice versa can be difficult with bindgen, as we will see later.
-Instead cxx takes a declaration for a common interface between C++ and Rust and generates a bridge from pure C functions that both languages can access.
-Autocxx by Google is similar to bindgen for C++, but instead of generating a Rust interface directly it generates a cxx interface, which in turn generates the Rust interface.
+Instead, cxx takes a declaration for a common interface between C++ and Rust and generates a bridge from pure C functions that both languages can access.
+Autocxx by Google is similar to bindgen for C++, but instead of directly generating a Rust interface, it generates a cxx interface, which in turn generates the Rust interface.
 
-To come back to our original problem, which one of these should we use to access the circle library from our Rust code?
-Since circle is written in C++ and we just want to call C++ functions from Rust, not the other way around, autocxx would be the ideal choice.
-Unfortunately at the time of writing autocxx does not work with bare-metal programs.
-There is ongoing work on this and autocxx itself can actually be compiled for bare-metal, but one of its dependencies can't.
-This leaves us with two options, use cxx and manually write the interface, or use bindgen and work with a more convoluted interface.
-Since bindgen has been stable for a long time and cxx is still partially a work in progress wo chose to use bindgen for a more meaningful insight into Rust.
+To come back to our original problem, which one should we use to access the Circle library from our Rust code?
+Since Circle is written in C++ and we just want to call C++ functions from Rust, not the other way around, autocxx would be the ideal choice.
+Unfortunately, at the time of writing autocxx does not work with bare-metal programs.
+There is ongoing work on this, and autocxx itself can actually be compiled for bare metal, but one of its dependencies cannot.
+This leaves us with two options: use cxx and manually write the interface, or use bindgen and work with a more convoluted interface.
+Since bindgen has been stable for a long time and cxx is still partially a work in progress, we chose to use bindgen for a more meaningful insight into Rust.
 
-As mentioned earlier bindgen can be used either as a command line utility to generate the bindings once,
+As mentioned earlier bindgen can be used either as a command-line utility to generate the bindings once,
 or as a build dependency to automatically generate the bindings at compile time.
 We are going to use the second approach.
 To add bindgen as a build dependency we add
@@ -330,7 +329,7 @@ bindgen = "0.69.4"
 \end{verbatim}
 to our Cargo.toml.
 
-Cargo provides the option of creating a build.rs file, which will be compiled and executed before the actual compile.
+Cargo provides the option of creating a build.rs file that will be compiled and executed before the actual compile.
 In order to create the bindings and link the final binaries correctly we create a build.rs.
 \begin{lstlisting}[language=Rust,style=colouredRust]
 use bindgen::{Builder, MacroTypeVariation};
@@ -341,12 +340,12 @@ fn main() {
 }    
 \end{lstlisting}
 
-Inside the main function we do three different things.
-First, setting up the linker search path, second, linking to the correct binaries and third generating the bindings for Rust.
-For all this we have placed the circle source code in the circle directory in our project folder as well as configured and built the circle library.
-We will take a more detailed look at configuring and compiling circle soon, but for now the focus is on the build script.
+Inside the main function, we do three different things.
+First, setting up the linker search path, second, linking to the correct binaries, and third, generating the bindings for Rust.
+For all this, we have placed the Circle source code in the circle directory in our project folder as well as configured and built the Circle library.
+We will take a more detailed look at configuring and compiling Circle soon, but for now the focus is on the build script.
 
-The linker search path is expanded like this:
+The linker search path is expanded as follows:
 \lstinputlisting[language=rust,style=colouredRust,linerange={1-29}]{code/bare-metal/build.rs}
 
 Then we link to the binaries mentioned in the above code:
@@ -355,31 +354,31 @@ Then we link to the binaries mentioned in the above code:
 Generating the bindings is simple thanks to bindgen, we generate bindings for all symbols in wrapper.hpp,
 a file that we will write where we include all the headers interesting to us.
 Notable are the use\_core() and vtable\_generation(true) methods.
-Use\_core() tells bindgen to use only types from the core library instead of std in the bindings, which is necessary for us as we are targeting a bare-metal environment.
+Use\_core() tells bindgen to use only types from the core library instead of std in the bindings, which is necessary for us as we are targeting a bare metal environment.
 Vtable\_generation(true) enables generating types for the vtables of C++ classes.
 This allows us to make calls to inherited functions of classes.
 \lstinputlisting[language=rust,style=colouredRust,linerange={37-54}]{code/bare-metal/build.rs}
 
 The build script places the generated bindings in a file called bindings.rs in the cargo build directory.
-To include this file in our main Rust code we create a new source file that includes the bindings:
+To include this file in our main Rust code, we create a new source file that includes the bindings:
 \lstinputlisting[language=Rust,style=colouredRust]{code/bare-metal/src/ffi.rs}
 
-Because the bindings will use the C++ type and function names we would get a lot of warnings for not following Rust naming conventions.
-To ignore the warnings we add some allow directives to the file.
+Because the bindings will use the C++ type and function names, we would get a lot of warnings for not following Rust naming conventions.
+To ignore the warnings, we add some allow directives to the file.
 
 Compiling and configuring Circle works like this:
-Obtain the source code for Circle either from a tarball or the repository, we used the Step46 tag as it was the latest at the time of writing.
-Inside of the circle source directory execute the following commands:
+Obtain the source code for Circle either from a tarball or the repository, we used the Step46 tag, as it was the latest at the time of writing.
+Inside of the Circle source directory execute the following commands:
 \begin{verbatim}
 ./configure --raspberrypi 4 --prefix aarch64-none-elf-
 ./makeall
 \end{verbatim}
 
-To create a bootable binary from this we need to create a suitable main.rs and .cargo/config.toml.
+To create a bootable binary from this, we need to create a suitable main.rs and .cargo/config.toml.
 Both are very similar to what we already saw in the \nameref{sec:concept_and_implementation:bare-metal:boot} chapter, so we will show only the differences here.
 In the .cargo/config.toml we only change the compile flags to use Circle's linker script and .init section as the boot function.
-Circle's linker script is not as simplistic as ours was, because it provides the necessary sections for static variables, constants and a heap.
-The .init section is defined in the main circle library and provides a bootup function that initializes the .bss and .data sections correctly by zeroing them and copying any constants to RAM.
+Circle's linker script is not as simplistic as ours, because it provides the necessary sections for static variables, constants, and a heap.
+The .init section is defined in the main Circle library and provides a bootup function that initializes the .bss and .data sections correctly by zeroing them and copying any constants to RAM.
 \begin{verbatim}
 ...
 rustflags = ["-C", "link-args=--section-start=.init=0x80000 -Tcircle.ld"]
@@ -387,7 +386,7 @@ rustflags = ["-C", "link-args=--section-start=.init=0x80000 -Tcircle.ld"]
 \end{verbatim}
 
 In the main.rs instead of the \_start function we create a function called main with the type void $\rightarrow$ int,
-because Circle links to such a function in order to call it after the bootup initilization is done.
+because Circle links to such a function in order to call it after the bootup initialization is done.
 \begin{lstlisting}[language=Rust,style=colouredRust]
 ...
 #[no_mangle]
@@ -399,61 +398,61 @@ pub unsafe extern "C" fn main() -> c_int {
 
 Building the final binary works the same as in \nameref{sec:concept_and_implementation:bare-metal:boot}.
 This leaves only one final step to make the Raspberry Pi boot our Rust binary.
-As mentioned int the Rpi boot process we need the start4.elf, fixup4.dat, bcm2711-rpi-4-b.dtb and config.txt files on the final SD card or USB stick.
-These can be obtained from the official Raspberry Pi repository, but circle can download them for us.
-To download them through circle call make in the circle/boot directory.
+As mentioned in the Rpi boot process we need the start4.elf, fixup4.dat, bcm2711-rpi-4-b.dtb and config.txt files on the final SD card or USB stick.
+These can be obtained from the official Raspberry Pi repository, but Circle can download them for us.
+To download them through Circle, call make in the circle/boot directory.
 
 \subsection{The final implementation}
 \label{sec:concept_and_implementation:bare-metal:implementation}
 
-With all the pieces in the right places, we can write the actual application.
-Similar to the linux version, we start by setting up Spi and Pwm and afterwards start the infinite control loop.
+With all the pieces in place, we can write the actual application.
+Similarly to the Linux version, we start by setting up Spi and Pwm and afterwards start the infinite control loop.
 To setup Spi and Pwm, we use the C++ constructors, which are translated by bindgen into the ClassName::new() functions.
-In addition we need to set pin 18 into alternate function mode 5, so it is wired up to the PWM signal from the PWM controller.
-Which alternate function mode we need can be found in the bcm2711 datasheet or the Circle documentation.
+In addition, we need to set pin 18 in alternate function mode 5, so that it is wired up to the PWM signal from the PWM controller.
+The alternate function mode we need can be found in the bcm2711 data sheet or the Circle documentation.
 
 \lstinputlisting[language=rust,style=colouredRust,linerange={63-74,80-86}]{code/bare-metal/src/main.rs}
 
-The actual control loop is almost identical to the linux version, with the only differences being the way to get the time and the different syntax of setting the PWM duty cycle.
-To measure the iteration time deltas, we use Circle's CTimer class. The accuracy of this clock will be discussed in more detail in \nameref{sec:experiments:methodology}.
-Setting the PWM duty cycle works a bit different in Circle than in rppal,
+The actual control loop is almost identical to the Linux version, with the only differences being the way to get the time and the different syntax of setting the PWM duty cycle.
+To measure the iteration-time deltas, we use Circle's CTimer class. The accuracy of this clock will be discussed in more detail in \nameref{sec:experiments:methodology}.
+Setting the PWM duty cycle works a bit differently in Circle than in rppal,
 in rppal we express the target value through a float in the range of 0 to 1,
 which aligns nicely with the output of the pid library.
-Circle instead expect us to set a granularity at device initialization and then an integer value of 0 to granularity.
-We used a granularity of 1024 steps, and clamp it because Circle will just segfault on a too high value, which could not happen in pure Rust.
+Circle instead expects us to set a granularity at device initialization and then an integer value of 0 to granularity.
+We used a granularity of 1024 steps and clamp it because Circle will just segfault on a too high value, which could not happen in pure Rust.
 
 \lstinputlisting[language=Rust,style=colouredRust,linerange={92-95,161-179}]{code/bare-metal/src/main.rs}
 
-As Circle also doesn't provide an inplace SPI send-receive, we also need to change the get\_position() function a bit to use two buffers instead of one.
+As Circle also does not provide an inplace SPI send-receive, we also need to change the get\_position() function a bit to use two buffers instead of one.
 \lstinputlisting[language=Rust,style=colouredRust,linerange={182-199}]{code/bare-metal/src/main.rs}
 
 \section{Rust native HAL}
 \label{sec:concept_and_implementation:hal}
 
-Instead of using an foreign language library like Circle for this project we could also have written our own Rust native HAL.
+Instead of using a foreign language library like Circle for this project, we could also have written our own Rust native HAL.
 This would provide several key benefits:
 \begin{itemize}
     \item Vastly simpler build process, completely eliminating the need for the C toolchain
-    \item Upholding Rusts memory safety guarantees, which we largely lost/ignored when using Circle
+    \item Upholding Rust's memory safety guarantees, which we largely lost/ignored when using Circle
     \item Possibly higher performance because we could use link time optimization on the entire program
     \item Access to any Rust crate that depends on an embedded-hal implementation.
 \end{itemize}
 
-In order to understand why we chose against this approach let us look at the complexity it already takes to implement a HAL just for the GPIO pins of the Raspberry Pi.
+In order to understand why we chose against this approach, let us look at the complexity it already takes to implement a HAL just for the GPIO pins of the Raspberry Pi.
 A pure native Rust stack for the Raspberry Pi 4 would consist out of the following components:
 \begin{enumerate}
     \item A Peripheral Access Crate (PAC) that contains all the memory addresses for the memory mapped IO. This can be generated using svd2rust from an svd file.
-    \item A HAL crate that implements the embedded-hal traits, embedded-io traits for uart, dma, pcie and a critical section implementation for the bcm2711 processor.
-    \item A Board Support Crate/Package (BSP) that contains board but not processor specific implementations, such as the boot process, usb and ethernet.
+    \item A HAL crate that implements the embedded-hal traits, embedded-io traits for UART, DMA, PCIe and a critical section implementation for the bcm2711 processor.
+    \item A Board Support Crate/Package (BSP) that contains board but not processor-specific implementations, such as the boot process, usb and ethernet.
 \end{enumerate}
 
-Forunately Broadcom provides the svd files for their processors and someone already has generated a PAC from them and published it on crates.io.
-From the HAL we implemented the GPIO pins as well as single core critical sections and from the BSP we implemented an entry macro to mark the boot function and a linker script that supports the .data and .bss sections.
+Fortunately Broadcom provides the svd files for their processors and someone already has generated a PAC from them and published it on crates.io.
+From the HAL we implemented the GPIO pins as well as single core critical sections, and from the BSP we implemented an entry macro to mark the boot function and a linker script that supports the .data and .bss sections.
 
 For the HAL gpio implementation we need to take the GPIO struct from the PAC that contains all addresses of the IO registers and use it to create a new pin type that implements the embedded-hal traits.
-GPIO pins on the Raspberry Pi can be in input, output and alternate function mode. These modes can be switched through the fsel (function select) registers.
-In C one would have to check at runtime if a pin is in the correct mode before using it.
-By modelling the modes as type parameters in Rust we can check at compile time that functions only use pins in the correct mode, with obvious benefits for performance and binary size.
+GPIO pins on the Raspberry Pi can be in input, output, and alternate function mode. These modes can be switched through the fsel (function select) registers.
+In C, one would have to check at runtime if a pin is in the correct mode before using it.
+By modeling the modes as type parameters in Rust we can check at compile time that functions only use pins in the correct mode, with obvious benefits for performance and binary size.
 
 \begin{lstlisting}[language=Rust,style=colouredRust]
 use core::marker::PhantomData;
@@ -500,7 +499,7 @@ pub struct Pin0<MODE> {
 \end{lstlisting}
 
 The Pin0 type can be now differentiated into Pin0<Output>, Pin0<Unknown>, Pin0<Input<Floating>>, Pin0<Input<PullDown>> and Pin0<Input<PullUp>>.
-For these types we can now implement constructors to switch between the types:
+For these types, we can now implement constructors to switch between the types:
 
 \begin{lstlisting}[language=Rust,style=colouredRust]
 impl<MODE> Pin0<MODE> {
@@ -550,13 +549,13 @@ impl<MODE> Pin0<MODE> {
 
 Note the actual register write operations: the raw address,
 the bit offset as well as the written value have all been transformed into constants and methods when generating the PAC.
-Because these are writes to arbitrary memory adresses, they are unsafe by Rusts memory model.
-But, in contrast to the circle implementation, we are not using unsafe here because we don't care about memory safety,
+Because these are writes to arbitrary memory addresses, they are unsafe by Rust's memory model.
+But, in contrast to the Circle implementation, we are not using unsafe here because we don't care about memory safety,
 but rather for its intended purpose to tell the compiler that we checked we are upholding all the safety guarantees.
-In this case the register writes are safe for two reasons.
+In this case, the register writes are safe for two reasons.
 For one, we know that there will never be unrelated data at this address, as it is hardwired to the MMIO.
 Second, set\_bits() is atomic so we don't get race conditions from multiple pins using the same fsel register switching their modes.
-This leaves implementing the embedded-hal traits for the pins. For a normal gpio pin these are InputPin with is\_high() and is\_low() as well as OutputPin with set\_high() and set\_low().
+This leaves implementing the embedded-hal traits for the pins. For a normal gpio pin, these are InputPin with is\_high() and is\_low() as well as OutputPin with set\_high() and set\_low().
 
 \begin{lstlisting}[language=Rust,style=colouredRust]
 impl<MODE> hal::digital::InputPin for Pin0<Input<MODE>> {
@@ -584,7 +583,7 @@ impl hal::digital::OutputPin for Pin0<Output> {
 }
 \end{lstlisting}
 
-In order to actually use this code the control flow would look like this:
+In order to actually use this code, the control flow would look like this:
 
 \begin{lstlisting}[language=Rust,style=colouredRust]
 let peripherals = hal::pac::Peripherals::take().unwrap();
@@ -595,28 +594,28 @@ pin0.set_high();
 \end{lstlisting}
 
 The Peripherals::take() method is generated by the PAC and is used to ensure that only one execution path can gain control over the peripherals initially.
-But for the internal check if the peripherals have already been taken to work svd2rust requires an implementation of the CriticalSection trait.
-Critical section as the name already implies is supposed to provide an environment where the execution cannot be interrupted.
+However, for the internal check if peripherals have already been taken, to work, svd2rust requires an implementation of the CriticalSection trait.
+CriticalSection, as the name already implies, is supposed to provide an environment in which execution cannot be interrupted.
 Implementing CriticalSection consists of the two methods acquire() and release().
 Since the bcm2711 is a multicore CPU implementing these would usually mean writing a spinlock,
-but for simpilicity we will force the user to only use a single core, which means that we only have to disable all interrupts,
+but for simpilicity, we will force the user to only use a single core, which means that we only have to disable all interrupts,
 which is possible with a aarch64 specific assembly instruction.
 
 \lstinputlisting[language=Rust,style=colouredRust]{code/hal/src/critical_section.rs}
 
-By default the bootup function from address 0x80000 is executed on all four cores,
-so if we want to allow only single core execution we must halt the exeuction flow on the other cores.
+By default, the bootup function from address 0x80000 is executed on all four cores,
+so if we want to allow only single core execution, we must halt the execution flow on the other cores.
 
-To do this we run a check on the MPIDR\_EL1 register which is a aarch64 specific register contains the id of the current virtual core.
-Only if it is zero and we are on the first core, we continue with the user provided \_\_start\_rust function.
-If we are on another core we halt execution by waiting for an interrupt.
+To do this, we run a check on the MPIDR\_EL1 register, which is an aarch64 specific register that contains the id of the current virtual core.
+Only if it is zero and we are on the first core, we continue with the user-provided \_\_start\_rust function.
+If we are on another core, we halt execution by waiting for an interrupt.
 
 \lstinputlisting[language=Rust,style=colouredRust,linerange={1-18}]{code/hal/src/entry.rs}
 
-In total this Rust native approach would allow an application to be written with minimal effort,
+In total, this Rust native approach would allow an application to be written with minimal effort,
 including the BSP as a dependency in cargo would take care of all the linking intricacies,
-and the actual code would be almost the same as in the linux based version.
-Because Spi and Pwm are abstracted behind the embedded-hal traits one could even use a shared code base with a linux version for rapid development
+and the actual code would be almost the same as in the Linux based version.
+Because Spi and Pwm are abstracted behind the embedded-hal traits, one could even use a shared code base with a Linux version for rapid development
 and an embedded version for the final version.
 But implementing this fully would require a further, extremely detailed understanding of the inner working of the bcm2711,
-how to operate the DMAs to communicate with the SPI controller, the SPI controller itself and the PWM controller.
+how to operate the DMAs to communicate with the SPI controller, the SPI controller itself, and the PWM controller.
