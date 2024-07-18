@@ -3,13 +3,13 @@
 \chapter{Conclusion}
 \label{chap:conclusion}
 
-We initially set out to create a flexible motorcontroller on a RaspberryPi,
-with the idea being that different control schemes could easily be implemented in software and tested.
-To reach this goal we looked at several different approaches,
+We initially set out to create a flexible motor controller on a RaspberryPi,
+with the idea that different control schemes could easily be implemented in software and tested.
+To reach this goal, we looked at several different approaches,
 both from a detailed look at the implementation as well as the resulting performance characteristics.
-For all of the approaches we used the programming language Rust,
+For all of the approaches, we used the programming language Rust,
 whose role in the embedded world is still an area of active research.
-While a lot of research focuses on how Rusts powerful static analysis can be applied to embedded systems,
+While a lot of research focuses on how Rust's powerful static analysis can be applied to embedded systems,
 we examined the interaction of Rust with C/C++ libraries.
 
 The different versions we developed were:
@@ -17,23 +17,23 @@ The different versions we developed were:
     \item A bare-metal version using the Circle C++ library to access peripherals
     \item A version running on the standard linux kernel using the Rust native rppal library for peripheral access
     \item A variant of the linux version that had one core reserved for it to avoid being interrupted or having to wait for a core to be available.
-    \item A second variant of the linux version that exchanges the default linux kernel with one patched with a realtime patchset
+    \item A second variant of the Linux version that exchanges the default linux kernel with one patched with a real-time patchset.
 \end{enumerate}
 
 When testing these for performance, we found two main results.
-For one, the linux based versions all exhibited regular iteration time spikes, of up to 2.5 milliseconds,
+For one, the Linux-based versions all exhibited regular iteration time spikes, of up to 2.5 milliseconds,
 while the regular run time was more around 40 microseconds.
-In this behavior, the linux based versions did not differ significantly from each other,
+In this behavior, the Linux-based versions did not differ significantly from each other,
 so for this workload our approaches at optimizing the thread allocation were unsuccessful.
-Second, the bare-metal version performed about 10 times faster than the linux based versions,
+Second, the bare metal version performed about 10 times faster than the Linux based versions,
 all while not having the latency spike problem.
 
-Regarding the usage of Rust we found that most of the added complexity of adding another language is not in the language interaction itself,
+Regarding the usage of Rust, we found that most of the added complexity of adding another language is not in the language interaction itself,
 but rather in the surrounding tooling such as managing multiple compilers, linkers and build systems to all work together.
-This can be seen both as a positive as well as a negative.
-The positive side is that the language tools such as bindgen for generating the bindings to the C code are in a good shape both from a usability and stability perspective,
-while the negative side is the added build system complexity might deter people that are just trying to code the actual program.
+This can be seen both as a positive and as a negative.
+The positive side is that the language tools such as bindgen for generating the bindings to the C code are in good shape both from a usability and stability perspective,
+while the negative side is that the added build system complexity might deter people who are just trying to code the actual program.
 
 This leaves several directions in which this research could be expanded in future work.
 Writing the bare-metal program in C for a performance comparison between Rust with a C++ library and pure C++ would be a logical follow-up to the embedded Rust work.
-And on a different route, an in-depth analysis of why and how the latency spikes for the linux version occur could yield results how to achieve comparable performance to the bare-metal version.
+And, on a different route, an in-depth analysis of why and how the latency spikes for the Linux version occur could yield results on how to achieve comparable performance to the bare-metal version.

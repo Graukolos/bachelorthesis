@@ -6,13 +6,13 @@
 \chapter{Experiments}
 \label{chap:experiments}
 
-In order to compare our different approaches we measured the time an iteration of our control loop takes.
-This allows us to compare not only the speed of each program version but also the consistency in the iteration times.
+In order to compare our different approaches, we measured the time an iteration of our control loop takes.
+This allows us to compare not only the speed of each version of the program but also the consistency in the iteration times.
 
 \section{Methodology}
 \label{sec:experiments:methodology}
 
-In order to make the benchmarks as comparable as possible we set a few invariants between the runs:
+In order to make the benchmarks as comparable as possible, we set a few invariants between the runs:
 \begin{itemize}
   \item Each of the benchmarks is run on the exact same RaspberryPi 4B.
   \item The Pi runs at the stock core frequency of 1800MHz.
@@ -49,18 +49,18 @@ The linux versions all run a common iteration function:
   }
 \end{lstlisting}
 
-Time measurment is done here through Rusts stdlib Instant and Duration types.
-On linux these compile to the clock\_gettime syscall in order to get microsecond accurate time.
-Because the RaspberryPi 4 does not yet have a real time clock like the Raspberry Pi 5,
-linux uses the clock interrupts of a 1MHz oscillator to measure the time.
-The benchmarks are first run for 10000 iterations without measuring, in order to avoid any latency spikes because of cache missess in the real benchmark.
+Time measurement is done here through Rusts stdlib Instant and Duration types.
+On Linux these compile to the clock\_gettime syscall in order to get microsecond accurate time.
+Because the RaspberryPi 4 does not yet have a real-time clock like the Raspberry Pi 5,
+Linux uses the clock interrupts of a 1MHz oscillator to measure the time.
+The benchmarks are first run for 10000 iterations without measuring, in order to avoid any latency spikes because of cache misses in the real benchmark.
 The real benchmark is then run for 1000000 iterations while saving the measured time deltas to an array.
-To execute the benchmarks the criterion framework for Rust was used as it allows easy configuration of the amount of samples,
-runs an unmeasured three second warmup loop of the benchmark beforehand and automatically generates plots and statistics data from the results.
+To execute the benchmarks, the criterion framework for Rust was used as it allows easy configuration of the amount of samples,
+runs an unmeasured three-second warmup loop of the benchmark beforehand and automatically generates plots and statistics data from the results.
 
-For the isolated core version we use the cset python program in order to easily manipulate the linux kernels cpuset subsystem.
-This allows us with few commands to isolate one core from all running processess and run our program on it, without being disturbed by core local interrupts.
-Global interrupts such as spinlocks when running a syscall can however still halt our execution flow.
+For the isolated core version, we use the cset python program in order to easily manipulate the Linux kernels cpuset subsystem.
+This allows us with few commands to isolate one core from all running processes and run our program on it, without being disturbed by core local interrupts.
+Global interrupts such as spinlocks when running a syscall can, however, still halt our execution flow.
 
 We can run cset from inside of our program with the current process id this way:
 \begin{lstlisting}[language=Rust,style=colouredRust]
@@ -78,11 +78,11 @@ We can run cset from inside of our program with the current process id this way:
       .expect("cset did not exit successfully");
 \end{lstlisting}
 
-For the realtime version we needed a kernel that can boot with the Raspberry Pi bootloader,
+For the real-time version we needed a kernel that can boot with the Raspberry Pi bootloader,
 have the out-of-tree kernel modules for spi and pwm and support fully preemtive scheduling.
-In order to get that combination, the official sources for the Rpi kernel were patched with the fitting version of the PREEMP\_RT patchset and compiled.
+In order to obtain that combination, the official sources for the Rpi kernel were patched with the fitting version of the PREEMP\_RT patchset and compiled.
 
-To achieve this Step 1 is to get all the required build dependencies.
+To achieve this, Step 1 is to get all the required build dependencies.
 \begin{lstlisting}[language=bash, breaklines]
   sudo apt update && sudo apt install build-essential flex bison libssl-dev bc
 \end{lstlisting}
@@ -103,7 +103,7 @@ Step 3 is to generate the kernel config, we use the provided default config for 
   make olddefconfig
 \end{lstlisting}
 
-Step 4 is to actually compile the kernel, this takes about 3 hours on all 4 cores of the Raspberry Pi 4.
+Step 4 is to actually compile the kernel; this takes about 3 hours on all 4 cores of the Raspberry Pi 4.
 \begin{lstlisting}[language=bash, breaklines]
   make -j4 Image.gz modules dtbs
 \end{lstlisting}
@@ -117,17 +117,17 @@ Step 5 is to actually install the files.
   sudo cp arch/arm64/boot/Image.gz /boot/firmware/kernel8.img
 \end{lstlisting}
 
-At the end reboot to load the new kernel.
+In the end, reboot to load the new kernel.
 
 \subsection{Testing the bare-metal version}
-Benchmarking the bare-metal version is a bit more involved than the linux based versions.
-For measuring times Circle's CTimer::GetClockTicks64() is used. This in turn returns the amount of ticks of the 1MHz oscillator on the Rpi.
-Analogous to the linux versions the loop is run for 10000 iterations before we start measuring.
+Benchmarking the bare-metal version is a bit more involved than the linux-based versions.
+For measuring times, Circle's CTimer::GetClockTicks64() is used. This in turn returns the number of ticks of the 1MHz oscillator on the Rpi.
+Analogously to the Linux versions, the loop is run for 10000 iterations before we start measuring.
 
-The second difficulty with the bare-metal version is getting the results out of the RaspberryPi.
+The second difficulty with the bare metal version is getting the results out of the RaspberryPi.
 We need to either transmit the data over a connection such as ethernet, spi, i2c to another PC or save it to a filesystem on removable storage.
-Since we are running bare-metal that means we need a driver for one of these options.
-Because we are already using the Circle library for Spi and it provides simple access to a USB mass storage device with a FAT32 file system we will be using it to save the results.
+Since we are running bare-metal that means that we need a driver for one of these options.
+Because we are already using the Circle library for Spi and it provides simple access to a USB mass storage device with a FAT32 file system, we will be using it to save the results.
 
 The process for this is equivalent to how we already used the SPI and PWM drivers in the \nameref{chap:concept_and_implementation} chapter,
 so we will only skim over the most important parts.
@@ -182,9 +182,9 @@ filesystem.UnMount();
 \section{Results}
 \label{sec:experiments:results}
 
-Now for the actual measurments.
-In our simplest case we look at some statistical data from the measurments.
-Most important for our purposes are the average and worst case times.
+Now for the actual measurements.
+In our simplest case, we look at some statistical data from the measurements.
+Most important for our purposes are the average and worst-case times.
 
 \begin{table}[h!]
   \label{tab:measurments}
@@ -198,10 +198,10 @@ Most important for our purposes are the average and worst case times.
   \end{tabular}
 \end{table}
 
-To better visualize this and better understand the behavior of any outliers we have depicted the iteration times both in a histogram as well as the raw data points.
-The iteration time graphs allow for a better understanding of the relative difference between a normal iteration and the outlier ones,
-but due to the amount of datapoints obscure how often or rare these outlier actually occur.
-In order to overcome this downside we have the histogram with a logarithmic scale
+To better visualize this and better understand the behavior of any outliers, we have depicted the iteration times both in a histogram and in the raw data points.
+The iteration-time graphs allow for a better understanding of the relative difference between a normal iteration and the outlier ones,
+but due to the amount of datapoints obscure how often or rare these outliers actually occur.
+In order to overcome this downside, we have the histogram with a logarithmic scale.
 
 \makeatletter
 \newcommand{\includesvggraphics}[2][\textwidth]{
@@ -292,26 +292,26 @@ In order to overcome this downside we have the histogram with a logarithmic scal
 
 \section{Interpretation}
 
-There are two different things here to analyze.
-First, the difference between the bare-metal and linux version.
-All of the linux based versions have average execution times of an order of magnitude more than the bare-metal version,
+There are two different things to analyze here.
+First, the difference between the bare-metal and linux versions.
+All of the linux-based versions have average execution times of an order of magnitude more than the bare-metal version,
 which leaves the question:
-Is this speed difference adequately explained by the linux version having to switch the execution context to the kernel and back for the PWM and SPI kernel drivers?
-To answer this properly, we profiled a run of the default linux version, the result can be seen in \ref{fig:experiments:flamegraph}.
+Is this speed difference adequately explained by the Linux version having to switch the execution context to the kernel and back for the PWM and SPI kernel drivers?
+To answer this properly, we profiled a run of the default Linux version, the result can be seen in \ref{fig:experiments:flamegraph}.
 From this we can see that most of the time (84.12\%) is spent setting the duty cycle, which in turn means that the context switching overhead is not the issue.
-If it was, we would see close to the same duration for SPI and getting the system time, as we see for PWM.
+If it were, we would see close to the same duration for SPI and obtain the system time, as we see for PWM.
 This can have one of two causes:\\
 The linux kernel PWM driver is very slow.
 Or, the rppal implementation of set\_duty\_cycle() is not optimal,
 either because it does extra steps not needed for our case,
 or talks to the kernel in an inefficient way.
 Of these two the second one is more likely for two reasons,
-code in the linux kernel gets significantly more exposure and testing than rppal and the Circle PWM source code states,
+code in the Linux kernel gets significantly more exposure and testing than rppal and the Circle PWM source code states
 that it is heavily inspired by the linux implementation.
 If the reason is indeed that rppal could have been programmed differently for this task,
 a significant speedup could be achieved.
 Assuming the set\_duty\_cycle() was as fast as the SPI transfer,
-which would be reasonable as the spi transfer has to write and read to memory and the duty cycle function only has to do one write,
+which would be reasonable since the spi transfer has to write and read to memory and the duty cycle function only has to do one write,
 the linux version times would come down to roughly 15us,
 putting it in a very comparable ballpark as the bare-metal version.
 
@@ -323,11 +323,11 @@ putting it in a very comparable ballpark as the bare-metal version.
   \end{center}
 \end{figure}
 
-The second part of the results that is worth analyzing is the comparison of the linux version with each other.
-The goal of reducing the worst case latencies on linux has failed.
-Every one of the linux versions has regular lag spikes to over an order of magnitude more than the average iteration time.
-The isolated core and realtime versions that we hoped would reduce this behavior show very similar behavior as the stock version for iteration times under 1ms,
+The second part of the results worth analyzing is the comparison of the Linux versions with each other.
+The goal of reducing the worst-case latencies on Linux has failed.
+Every one of the Linux versions has regular lag spikes to more than an order of magnitude higher than the average iteration time.
+The isolated core and real-time versions that we hoped would reduce this behavior show very similar behavior as the stock version for iteration times under 1ms,
 but additionally have rare spikes up in the 2-2.5ms region.
 
-With both of these results in mind it is safe to say that the bare-metal version is the one more suited for the target application,
+With both of these results in mind, it is safe to say that the bare metal version is the one more suited for the target application,
 as regular reaction time spikes of almost a microsecond are just not acceptable and the lower average iteration times are preferable.
