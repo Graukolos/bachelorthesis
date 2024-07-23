@@ -6,8 +6,7 @@
 \chapter{Concept and Implementation}
 \label{chap:concept_and_implementation}
 
-Now for the actual implementation:\\
-We will first consider the general control flow of our application, both for the bare-metal and OS based versions.
+In this chapter, we will first consider the general control flow of our application, both for the bare-metal and OS based versions.
 For the Linux version specifically, we will then compare multiple approaches to optimize the OS both in terms of average performance as well as worst-case latencies.
 These different versions will be compared later to the bare metal version in the \nameref{chap:experiments} chapter.
 The bare-metal version demands a more detailed look, as it is the focus of this thesis.
@@ -55,7 +54,11 @@ Rust projects are built using the Cargo build system. This allows us to add rppa
 
 \lstinputlisting[]{code/os-based/Cargo.toml}
 
-This pulls the rppal source code from crates.io and builds it together with our program and links the two afterwards.
+Without going into too much detail, the Cargo.toml first specifies some metadata about our project, such as name, version, and the edition.
+The edition is a language standard specifier similar to C99 vs C11 and 2021 is the latest at the time of writing.
+Rust editions typically get released every three years and are backwards compatible.
+Afterwards, the dependencies are specified with versions and optionally feature flags and where to pull them from.
+By default, this pulls the rppal source code from crates.io and builds it together with our program and links the two afterwards.
 Alternatively, we could have specified a link or path to a custom version of rppal if that were needed.
 Then, setting up the devices is done by including the relevant types and creating instances of them.
 
@@ -99,14 +102,14 @@ So, all that is to do is to use it inside our main loop.
 
 Bare metal programming is traditionally something reserved for microcontrollers or OS kernels.
 While the Raspberry Pi 4 is not a microcontroller but a fully fledged PC capable of running desktop class operating systems,
-its simple boot process and access to low level IO such as $I^2C$, SPI and GPIO pins capable of analog input and output still allow it as if it were a microcontroller.
+its simple boot process and access to low level IO such as $I^2C$, SPI and GPIO pins capable of analog input and output still allow it to be used, as if it were a microcontroller.
 
 \subsection{HAL vs Circle}
 \label{sec:concept_and_implementation:bare-metal:hal}
 
 As we have seen in \nameref{sec:background:rust:embedded} the traditional way to program for a microcontroller in Rust
 is to create a library for it that implements all the traits from the embedded-hal crate and a second library for the bootup process.
-Doing that from scratch is a significant task that would exceed the scope of a bachelorthesis by quite a bit.
+Doing that from scratch is a significant task that would exceed the scope of a bachelor thesis by quite a bit.
 But in order to enable a better evaluation of Rust's suitability for embedded systems, we will demonstrate how such an implementation would look for the Gpio pins in \nameref{sec:concept_and_implementation:hal}.
 For the actually functional bare-metal program, we will be using a different route.
 The Circle library is a C++ framework that provides bare-metal access to pretty much all of the Rpi's available hardware.
@@ -207,7 +210,7 @@ On bare-metal we neither have command-line arguments nor a runtime.
 One thing that the standard library provided for us was a panic\_handler implementation.
 As the name suggests, the panic handler controls panic exceptions.
 On an operating system that typically includes logging the error message to stderr, but for bare-metal Rust expects us to provide an implementation.
-That leaves on final task, writing the function that will actually be run and ensuring that it is linked to the .text.\_start section.
+That leaves one final task, writing the function that will actually be run and ensuring that it is linked to the .text.\_start section.
 \begin{lstlisting}[language=Rust,style=colouredRust]
 #![no_std]
 #![no_main]
@@ -229,7 +232,7 @@ pub extern "C" fn _start() -> ! {
 The \#[no\_mangle] attribute before the start function tells the Rust compiler not to mangle the function name, which it would do by default.
 The \#[link\_section] attribute ensures that our start function is linked to the section we forced in the linker script to be included at address 0x80000.
 The pub attribute makes the function visible to the linker instead of only to the compiler.
-The extern C attribute tells the compiler to adhere to the C ABI for the start function.
+The extern C attribute tells the compiler to adhere to the C ABI (Application Binary Interface) for the start function.
 This is necessary because the Rust ABI is unstable and may be more complicated than jumping to the start address.
 
 At this point, we can obtain a binary by running cargo build.
@@ -261,7 +264,7 @@ cargo objcopy --release -- -O binary kernel8.img
 \subsection{Compiling Circle and linking it to Rust}
 \label{sec:concept_and_implementation:bare-metal:ffi}
 
-Many languages provide a way to link to C ABI (Application Binary Interface) functions; examples for this are C++ with its extern C, Haskell with its FFI module, as well as Python.
+Many languages provide a way to link to C ABI functions; examples for this are C++ with its extern C, Haskell with its FFI module, as well as Python.
 The reasons for this are very simple; for one, the C ABI for each target platform is stable and allows thus to be used as a common language to bridge other languages.
 Second, C is still a widely used language with many useful libraries in any field of programming, which can then be used by languages with a C interface.
 

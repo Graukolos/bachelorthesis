@@ -36,17 +36,127 @@ Kurse aus meiner Vertiefung:
 \section{Rust Prerequisites}
 \label{sec:background:rust}
 
-\subsection{Rust - A modern systems programming language}
-\label{sec:background:rust:}
+Rust is a modern systems programming language,
+that claims to achieve comparable performance to languages with manual managed memory such as C and C++,
+while also being "memory safe", at term we will define more clearly shortly.
+Many modern languages use a garbage collector to manage memory on the heap,
+which is an additional thread that periodically checks all memory allocations to see if they are still used and frees them if they are not.
+This introduces an overhead, as the main execution path may be interrupted by the garbage collector and the analysis of the existing alloction takes execution time.
+Manually memory managed languages on the other hand suffer from the possibility of memory errors, such as double frees and use after frees.
+Typically manually memory managed languages also allow for arbitrary memory access leading to data races, reading uninitialized memory, etc.
+Rust aims to be the best of both worlds, managing memory without a garbage collector, while also avoiding memory management and access errors.
 
 \subsection{Memory managment by ownership}
 \label{sec:background:rust:ownership}
 
+To achieve this Rust employs a combination of methods, the most important one being ownership.
+Ownership in this context means that every resource has exactly one variable assigned as its owner.
+For our purposes resource usually means "memory on the heap",
+but can mean anything that needs setup and cleanup when it is used,
+such as file descriptors, sockets, or an SPI connection.
+The process of binding resource initialization and destruction to the lifetime of a variable is neither new,
+nor an invention of Rust,
+but rather the RAII (Resource acquisition is initialization) paradigm from C++.
+Since in the real world resources need to be used from multiple points, Rust introduces three ways to safely allow that:
+\begin{itemize}
+    \item transferring ownership, called moving in Rust
+    \item lending exclusive access, using a mutable reference
+    \item sharing non-exclusive access, using multiple immutable references
+\end{itemize}
+
+Of these references, there can always only be either one mutable reference or an arbitrary number of immutable references per resource.
+At compile time a part of the compiler called the borrow checker enforces this by checking the lifetimes of all references.
+Reference lifetimes are their own complex topic and not necessary for the rest of this thesis, so we will not go into them.
+
+\begin{lstlisting}[language=Rust,style=colouredRust]
+// create a variable a that owns a heap allocation
+let a = Box::new([0; 1000]);
+// move the ownership from a to b
+let b = a;
+// this statement would now not compile, because a does not own the allocation anymore
+let c = a[0];
+\end{lstlisting}
+
 \subsection{Unsafe Rust}
 \label{sec:background:rust:unsafe}
 
+Earlier we said that we'd define "memory safety" more closely, now is the time for that.
+Operations in Rust are called memory unsafe when they cause undefined behavior (UB),
+where undefined behavior is defined as the following by the \cite{Rustonomicon}:
+\begin{itemize}
+    \item Dereferencing dangling or unaligned pointers
+    \item Breaking the pointer aliasing rules of LLVMs noalias memory model
+    \item Calling a function with the wrong call ABI or unwinding from a function with the wrong unwind ABI
+    \item Causing a data race
+    \item Executing code compiled with target features that the current thread of execution does not support
+    \item Producing invalid values:
+    \begin{enumerate}
+        \item a bool that isn't 0 or 1
+        \item an enum with an invalid discriminant
+        \item a null fn pointer
+        \item a char outside the ranges [0x0, 0xD7FF] and [0xE000, 0x10FFFF]
+        \item a ! (! is a type used to mark unreachable or infallible values)
+        \item an integer (i*/u*), floating point value (f*), or raw pointer read from uninitialized memory, or uninitialized memory in a str
+        \item a reference/Box that is dangling, unaligned, or points to an invalid value
+        \item a wide reference, Box, or raw pointer that has invalid metadata:
+        \begin{itemize}
+            \item dyn Trait metadata is invalid if it is not a pointer to a vtable for Trait that matches the actual dynamic trait the pointer or reference points to
+            \item slice metadata is invalid if the length is not a valid usize
+        \end{itemize}
+        \item a type with custom invalid values that is one of those values, such as a NonNull that is null.
+    \end{enumerate}
+\end{itemize}
+
+This comes with a problem though, in order to prevent UB from occuring,
+some operations such as reading from an arbitrary memory address are not possible,
+because the compiler cannot check if the would cause UB.
+But in reality there are cases where it is both necessary and safe to read from specific memory addressess,
+most notably when talking to memory mapped IO.
+
+This is where the unsafe keyword in Rust comes in.
+Unsafe marks sections of code where the programmer has additional tools at his disposal, but is also responsible for upholding the aforementioned guarantees.
+Unsafe code that successfully upholds all the invariants is called sound, unsafe code that can produce UB is called unsound.
+The additional things unsafe allows us to do are:
+\begin{itemize}
+    \item Dereference raw pointers
+    \item Call unsafe functions (including C functions, compiler intrinsics, and the raw allocator)
+    \item Implement unsafe traits
+    \item Mutate statics
+    \item Access fields of unions
+\end{itemize}
+
+Most of these are uninteresting for us, so we will focus only on dereferencing raw pointers and calling unsafe functions.
+Dereferencing raw pointers is self-explanatory in its meaning, the interesting part here is when is it sound to do so.
+The pointer must be correctly aligned and not aliased.
+If the access is a write we need to make sure that we don't cause data races through an additional read or write.
+
+Calling other unsafe functions may not seem very important at a first glance,
+but this changes, when we consider that there are a few sources of unsafe functions that are not written by us.
+Most important for us are C functions.
+Since C code is inherently memory unsafe it is up to the programmer to check its soundness.
+So calling any C code from Rust needs to be done in an unsafe block.
+The second important source of unsafe functions is in the standard library.
+Here are compiler intrinsics, platform specific functions and raw access to the heap allocator, which allows for a C style manual memory management.
+
 \subsection{Rust in the embedded world}
 \label{sec:background:rust:embedded}
+
+Since we will look at Rust through the lense of an embedded program, we should discuss the ecosystem around embedded programming in Rust.
+When compared to C and C++ there is a notable amount of standardization in the Rust ecosystem.
+The Rust Embedded SIG (Special Interest Group) provides several key libraries that provide common interfaces for all Rust embedded software to use.
+This allows for a clear distinction between hardware drivers implementing these interfaces and using a generic version of the interface.
+The most important of these libraries both in general and for our uses are:
+\begin{itemize}
+    \item embedded-hal (interfaces for SPI, PWM, I2C, GPIO, and delays)
+    \item embedded-io (interfaces for UART, USB)
+    \item critical-section (interafce for uninterrupted code execution)
+\end{itemize}
+
+There are also libraries for the CAN-bus, DMA controllers, and async versions of embedded-hal and embedded-io,
+but, since these are not relevant for our project and function in similar ways to embedded-hal,
+we will not discuss them further.
+
+
 
 \subsection{Typestate programming}
 \label{sec:background:rust:typestate}
