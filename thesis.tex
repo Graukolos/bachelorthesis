@@ -34,11 +34,20 @@
 }
 
 \RRLABabstract{Abstract}{
-    We present a flexible motor controller on a RaspberryPi.
+    \section*{English Version}
+    We present a flexible motor controller architecture on a RaspberryPi.
+    The goals for this implementation are an easily interchangeable control algorithm and high performance.
     We discuss several different approaches to achieve our goals: One running bare metal without an operating system, and another one on top of the linux kernel.
     For the linux kernel version we explore multiple different ways on optimizing the execution times.
     All of these will be written in the Rust programming language, a modern systems programming language with potential in the embedded world.
     This allows for an detailed analysis of Rust's intercompatibility with C.
+
+    \section*{German Version}
+    Wir stellen eine auf einem Raspberry Pi implementierte Motorsteurung vor.
+    Der Regelungsalgorithmus selbst soll dabei austauschbar sein und wird für alle Beispielprogramme durch einen PID-Regler implementiert.
+    Ziel ist es eine möglichst performante Implementierung zu finden, sowohl was die durchschnittlichen Reaktionszeiten, also auch die Worst-Case Laufzeiten angeht.
+    Um das zu erreichen, vergleichen wir zwei grundlegend verschiedene Ansätze, einmal ein Bare-metal Programm und einmal eines das unter Linux läuft.
+    Diese Implementierung nutzen wir um die Eignung der Programmiersprache Rust für embedded Programme zu untersuchen, insbesondere mit Hinblick auf die interkompatibilität mit C.
 }
 
 \RRLABcontents
@@ -47,7 +56,7 @@
 
 \include{chapters/background}
 
-\include{chapters/related_work}
+%\include{chapters/related_work}
 
 \include{chapters/concept_and_implementation}
 

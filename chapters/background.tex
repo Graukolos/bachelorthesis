@@ -6,26 +6,53 @@
 
 \begin{comment}
 Kurse aus meiner Vertiefung:
-    - Prozessorarchitektur
-    - Funktionales Programmieren
-    - Grundlagen eingebetteter Systeme
-    - OS-based programming of embedded systems
+- Prozessorarchitektur
+- Funktionales Programmieren
+- Grundlagen eingebetteter Systeme
+- OS-based programming of embedded systems
 
 - Real Time Linux (PREEMPT-RT specifically)
-- Bcm2711 hardware capabilities
-- Rust general features over C (Traits, algebraic enums etc)
-- Rust embedded ecosystem
-- Spi
-- 
+- hard vs soft real time
 \end{comment}
+
+There are several Prerequisites necessary for the rest of the thesis.
+In this chapter we're first going to cover the architectural background of bare-metal, operating systems and scheduling,
+then, continue with the language prerequisites for Rust and last, provide an overview of the hardware used.
 
 \section{Bare-Metal vs Operating System}
 \label{sec:background:bm_vs_os}
 
-% what does an os do? what advantages has it, what disadvantages
+Many embedded systems run bare-metal, meaning without an operating system kernel that provides task scheduling, heap allocations and hardware access.
+The reasons for this are that microcontrollers are often limit in their computational abilities and the operating system always causes some overhead.
+In addition to the computational overhead many operating system scheduling strategies are optimized for throughput as opposed to reaction times.
+With the event-driven nature of many embedded systems these higher and often unregular reaction times are not desireable.
+As a result of this a specialized class of operating systems optimized for embedded systems exists.
+These real time operating systems (RTOS) minimize the space and computation overhead and employ special scheduling strategies to guarantee worst-case reaction times.
+
+While bare-metal systems have several advantages as already mentioned, they are not without their disadvantages.
+Writing a bare-metal program requires the programmer to be closely familiar with several additional aspects of the project:
+\begin{itemize}
+    \item the hardware
+    \begin{itemize}
+        \item the processor and processor architecture the project is built for
+        \item hardware interfaces and their protocols, such as SPI and PWM for our project
+        \item understanding hardware interrupts may be required to write a performant implementation
+    \end{itemize}
+    \item the software
+    \begin{itemize}
+        \item many embedded platforms require a specific toolchain, that may come with its own caveats
+        \item debugging is more complex and often requires the use of hardware interfaces such as JTAG
+        \item hardware specific libraries
+    \end{itemize}
+\end{itemize}
+All of these take additional time during a project and require more skilled programmers, which can add its own cost.
 
 \subsection{Real time scheduling}
 \label{sec:background:bm_vs_os:rtos}
+
+Earlier we mentioned real time operating systems, but what does real time actually mean?
+Real time systems are systems that guarantee the execution of a certain task before a certain time limit.
+
 
 \subsection{PREEMP-RT}
 \label{sec:background:bm_vs_os:preempt_rt}
@@ -45,6 +72,14 @@ This introduces an overhead, as the main execution path may be interrupted by th
 Manually memory managed languages on the other hand suffer from the possibility of memory errors, such as double frees and use after frees.
 Typically manually memory managed languages also allow for arbitrary memory access leading to data races, reading uninitialized memory, etc.
 Rust aims to be the best of both worlds, managing memory without a garbage collector, while also avoiding memory management and access errors.
+
+\subsection{Terminology}
+\label{sec:background:terminology}
+
+There are a few terms used in Rust that need only a short introduction.
+First, a crate is the equivalent of a package in Rust, it can be either a library or an executable.
+Second, traits are the equivalent of interfaces, we will use both terms interchangeably in this thesis.
+Third, cargo is the build manager for Rust, comparable to NPM, CMake, Meson, Maven.
 
 \subsection{Memory managment by ownership}
 \label{sec:background:rust:ownership}
@@ -90,21 +125,21 @@ where undefined behavior is defined as the following by the \cite{Rustonomicon}:
     \item Causing a data race
     \item Executing code compiled with target features that the current thread of execution does not support
     \item Producing invalid values:
-    \begin{enumerate}
-        \item a bool that isn't 0 or 1
-        \item an enum with an invalid discriminant
-        \item a null fn pointer
-        \item a char outside the ranges [0x0, 0xD7FF] and [0xE000, 0x10FFFF]
-        \item a ! (! is a type used to mark unreachable or infallible values)
-        \item an integer (i*/u*), floating point value (f*), or raw pointer read from uninitialized memory, or uninitialized memory in a str
-        \item a reference/Box that is dangling, unaligned, or points to an invalid value
-        \item a wide reference, Box, or raw pointer that has invalid metadata:
-        \begin{itemize}
-            \item dyn Trait metadata is invalid if it is not a pointer to a vtable for Trait that matches the actual dynamic trait the pointer or reference points to
-            \item slice metadata is invalid if the length is not a valid usize
-        \end{itemize}
-        \item a type with custom invalid values that is one of those values, such as a NonNull that is null.
-    \end{enumerate}
+          \begin{enumerate}
+              \item a bool that isn't 0 or 1
+              \item an enum with an invalid discriminant
+              \item a null fn pointer
+              \item a char outside the ranges [0x0, 0xD7FF] and [0xE000, 0x10FFFF]
+              \item a ! (! is a type used to mark unreachable or infallible values)
+              \item an integer (i*/u*), floating point value (f*), or raw pointer read from uninitialized memory, or uninitialized memory in a str
+              \item a reference/Box that is dangling, unaligned, or points to an invalid value
+              \item a wide reference, Box, or raw pointer that has invalid metadata:
+                    \begin{itemize}
+                        \item dyn Trait metadata is invalid if it is not a pointer to a vtable for Trait that matches the actual dynamic trait the pointer or reference points to
+                        \item slice metadata is invalid if the length is not a valid usize
+                    \end{itemize}
+              \item a type with custom invalid values that is one of those values, such as a NonNull that is null.
+          \end{enumerate}
 \end{itemize}
 
 This comes with a problem though, in order to prevent UB from occuring,
@@ -156,22 +191,36 @@ There are also libraries for the CAN-bus, DMA controllers, and async versions of
 but, since these are not relevant for our project and function in similar ways to embedded-hal,
 we will not discuss them further.
 
+Implementations of these traits are called HALs (Hardware Abstraction Layers).
+Typical implementations for a microcontroller consist of three parts:
+\begin{enumerate}
+    \item A Peripheral Access Crate (PAC) that contains all the memory addresses for the memory mapped IO. This can be generated using svd2rust from an svd file.
+    \item A HAL crate that implements the embedded-hal traits, embedded-io traits for UART, DMA, PCIe and a critical section implementation for the bcm2711 processor.
+    \item A Board Support Crate/Package (BSP) that contains board but not processor-specific implementations, such as the boot process, usb and ethernet.
+\end{enumerate}
 
-
-\subsection{Typestate programming}
-\label{sec:background:rust:typestate}
+The svd2rust crate used for creating PACs is also an official crate maintained by the Embedded SIG.
 
 \section{Hardware Details}
 \label{sec:background:hardware}
 
+With all the software details out of the way, we can take a closer look at the hardware that we'll be using.
+First, we will give an overview over the Raspberry Pi and afterwards a detailed explanation of the parts we're actually using.
+For communcation with our position encoder the iC-MU, we use the SPI bus and for sending the output signal to the motor driver, we use a PWM signal.
+
+\subsection{Raspberry Pi 4}
+\label{sec:background:hardware:pi}
+
+The Raspberry Pi 4 is a Single Board Computer (SBC) based on the bcm2711 processor by Broadcom.
+It has 4 64bit arm cores and current models run at a frequency of 1.8GHz, while earlier production units ran at 1.5GHz.
+Interesting for us are mainly its IO capabilities.
+The onboard GPIO pins support simple on/off input and output, as well as 6 SPI buses, 4 I2C buses, a UART port, and 2 PWM outputs.
+
 \subsection{SPI}
 \label{sec:background:hardware:spi}
 
-Next we take a look at the SPI protocol.
-We will later use this to establish a communication link between the position encoder and the Raspberry Pi.
-The name SPI stands for "Serial Peripheral Interface".
-As the name already suggests it is a serial protocol for the communcition between one master and $n$ slaves.
-
+The SPI bus is a serial communcation interface between one master and n slaves.
+The name itself stands for "Serial Peripheral Interface".
 It uses 4 lanes for communication\cite[p. 220]{SensornetzwerkeInTheorieUndPraxis}:
 
 \begin{enumerate}
@@ -200,13 +249,60 @@ The relation of CPOL and CPHA to the 4 Modes can be seen in table \ref{tab:spi_m
 \begin{table}[hp]
     \begin{tabular}{|l|l|l|}
         \hline
-                    & CPOL = 0  & CPOL = 1     \\ \hline
-        CPHA = 0    & Mode 0    & Mode 2    \\ \hline
-        CPHA = 1    & Mode 1    & Mode 3    \\ \hline
+                 & CPOL = 0 & CPOL = 1 \\ \hline
+        CPHA = 0 & Mode 0   & Mode 2   \\ \hline
+        CPHA = 1 & Mode 1   & Mode 3   \\ \hline
     \end{tabular}
     \caption{SPI Modes}
     \label{tab:spi_modes}
 \end{table}
 
+\subsection{PWM}
+\label{sec:background:hardware:pwm}
+
+Since we're going to use PWM to control the motor driver, PWM should also get an introduction.
+Pulse Width Modulation (PWM) is the technique of generating a digital signal where the ratio of on to off time is variable.
+This allows to drive electric loads at only a percentage of their maximum power,
+for example in dimming LEDs and running a motor at slower speeds.
+The signal can be fully described by its frequency or period and duty-cycle or on-time.
+The period is the time a full on-off cycle takes, the frequency simple the inverse.
+The duty cycle and on-time describe what happens inside of a cycle,
+with the duty cycle being the percentage of time that the signal is on and the on-time being the raw time value for which the signal is on.
+
 \subsection{iC-MU}
 \label{sec:background:hardware:ic-mu}
+
+The iC-MU position encoder is a chip that is mounted on a motor in combination with a magnetic band in order to measure the current position of the motor,
+as well as the number of previous rotations.
+It is able to communicate this information through SPI, BiSS, SSI and ExtSSI.
+Since the only common protocol with our Raspberry Pi is SPI, we use that.
+The communication itself works by sending the chip an Opcode, optionally with some arguments such as a register address.
+The chip replies by echoing the Opcode and any arguments and if applicable attaching the return values.
+The different Opcodes are on byte long and can be seen in \ref{tab:opcodes}
+
+\begin{table}[hp]
+    \begin{tabular}{|l|l|}
+        \hline
+        Code & Description                     \\ \hline
+        0xB0 & ACTIVATE                        \\ \hline
+        0xA6 & SDAD-transmission (sensor data) \\ \hline
+        0xF5 & SDAD Status                     \\ \hline
+        0x97 & Read Register                   \\ \hline
+        0xD2 & Write Register                  \\ \hline
+        0xAD & Register Status                 \\ \hline
+    \end{tabular}
+    \caption{Opcodes for the iC-MU}
+    \label{tab:opcodes}
+\end{table}
+
+The communication protocl the iC-MU expects is read from its configuration EEPROM and falls back to SPI.
+Since all the default configuration values of the iC-MU are fine for us, we pulled the EEPROM data pin to ground.
+
+The only OpCode we will use is the SDAD-transmission one, as it gets the current position of the motor.
+The transmission process can be seen in \ref{fig:background:sdad}
+
+\begin{figure}
+    \includegraphics[width=.8\textwidth]{assets/sdad-transmission.png}
+    \caption{}
+    \label{fig:background:sdad}
+\end{figure}
