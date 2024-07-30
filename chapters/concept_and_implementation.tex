@@ -622,3 +622,52 @@ Because Spi and Pwm are abstracted behind the embedded-hal traits, one could eve
 and an embedded version for the final version.
 But implementing this fully would require a further, extremely detailed understanding of the inner working of the bcm2711,
 how to operate the DMAs to communicate with the SPI controller, the SPI controller itself, and the PWM controller.
+
+\section{Retrospect}
+
+Before we continue with the performance experiments in the next chapter we should take a moment to look back at the pros and cons of using Rust that we found.
+The main question we wanted to answer is, wether Rusts intercompatibility with C works for embedded systems and allows Rust to replace C in environments where only C libraries exist.
+While the short answer is, yes, it works, we also need to mention the drawbacks.
+
+For this, let us consider three scenarios:
+\begin{itemize}
+    \item a Rust HAL already exists and we build the program on top in Rust
+    \item a C library exists and we build the program on top in Rust
+    \item a C library exists and we build the program on top in C
+\end{itemize}
+
+Programming the first version would be analogous to the linux version that we presented earlier.
+The main difference would be that instead of rppal a HAL for the respective microcontroller would be used.
+As a result, in this ideal scenario, advantages and disadvantages would be very similar to what we've seen with the linux version.
+This includes on the advantages side the relatively low development effort and required know-how, Rust's memory safety guarantees and ecosystem of easy to include dependencies.
+
+The second version is what we did for the bare-metal version earlier.
+The biggest disadvantage here is the development effort,
+as we saw earlier this approach requires both additional time and knowledge for creating the bindings between the languages,
+adapting the build systems to compiling and linking multiple languages, and translating complex types like strings safely between the languages.
+In addition to this disadvantage, we lose the advantage of Rust's memory safety,
+because the underlying C code is unsafe and in order to check the unsafe invariants one would have to check the entire C codebase.
+While it is technically feasable to check the C code,
+at the point someone has a good enough understanding of both the hardware and the C code to thouroughly check it,
+the effort level is very similar to just writing a proper HAL and using a whole Rust stack.
+Another interesting insight we get from this comparison is where the added effort actually comes from.
+If Rust's approaches to memory safety would have made the language itself more complex,
+then the linux based version,
+which as we established is comparable to a native Rust bare-metal version,
+would likely be closer to the bare-metal version in terms of complexity.
+Instead most of the additional time was spent on bridging the too languages and setting up the tooling around them.
+
+The third version is the antithesis to what we have presented in this thesis so far, and is only here for comparison.
+Writing everything in C brings us to a sort of mittle point between the first two versions,
+we get none of the advantages of Rust,
+but also not the disadvantage of either writing a custom HAL or adapting a C library in Rust.
+
+This leaves the question, when does it make sense to use our approach of adapting C to Rust?
+There are two scenarios where this is feasable:
+\begin{enumerate}
+    \item There is some utility library in Rust that doesn't exist in C and is highly desireable for the current project.
+    \item The project should transition to Rust step by step instead of everything at once.
+\end{enumerate}
+
+Due to how widespread usage of C is, the first reason is only applicable in niche cases.
+The second reason however may apply for a lot more teams that want to evaluate Rust on their own or work in safety critical applications.
