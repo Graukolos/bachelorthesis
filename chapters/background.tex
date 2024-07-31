@@ -52,13 +52,57 @@ All of these take additional time during a project and require more skilled prog
 
 Earlier we mentioned real time operating systems, but what does real time actually mean?
 Real time systems are systems that guarantee the execution of a certain task before a certain time limit.
+These can be divided into two groups, soft real-time systems and hard real-time systems.
+Hard realtime systems consider any violation of a time limit as an unrecoverable failure.
+Soft realtime systems on the other hand just do their best to avoid exceeding time limits, but don't consider them catastrophic.
+Hard realtime is necessary everywhere where failure would result in damaging equipment or harming humans, such as in industrial machinery and emergency systems.
+Soft realtime on the other hand occurs where exceeding the time limits would degrade the result of the process.
+Examples of this would be decoding audio and video, where missing the time frame would lead to distortions or visual artifacts,
+or rendering a video game, where an additional frame of render time may lead to higher input latencies.
 
+Hard realtime by its nature can only consider the worst-case runtime of processes,
+which leads to a problem with common hardware and software implementations.
+Many parts of how computers work are optimized to speed up the average case, compromising on worst-case performance.
+On the hardware side examples of this are caches and branch predictions, where caches don't change the worst-case performance and branch predictions even make them worse.
+On the software side, the main problem is multitasking, where a scheduler assigns tasks to computing resources.
+General purpose operating systems often come with schedulers optimized for throughput as opposed to latency.
+
+This is where the already mentioned real time operating systems come in.
+By applying different scheduling algorithms,
+often coupled with additional metadata such as priorities and time limits,
+RTOS try to find a schedule that meets all time limits at runtime.
 
 \subsection{PREEMP-RT}
 \label{sec:background:bm_vs_os:preempt_rt}
 
-\subsection{Circle}
-\label{sec:background:bm_vs_os:circle}
+The linux kernel by itself is not realtime capable.
+This has two reasons:\\
+The scheduling algorithms available are not designed for it.
+Many kernel functions are not preemptible, making it impossible to guarantee reaction times for high priority tasks.
+
+Because of Linux's broad compatibility with hardware and familiarity for developers several projects adapt linux to be real time capable.
+\begin{itemize}
+    \item RTLinux, which is end-of-life since 2011
+    \item RTAI (Real Time Application Interface), which hasn't seen an update for two years at the time of writing
+    \item Xenomai
+    \item PREEMPT-RT
+\end{itemize}
+
+Of these, PREEMPT-RT is the most interesting one for us as we're going to use it later on.
+PREEMPT-RT is a community developed patchset for the linux kernel.
+It works by providing preemptible versions of all non-preemptible kernel functions
+and adding the necessary scheduling algorithms to the Linux kernel.
+The goal here is to upstream everything at some point into the mainline linux kernel.
+This upstreaming effort has seen some notable successess;
+The SCHED\_DEADLINE scheduler is upstreamed since kernel 3.14 and by version 6.0 most of the functin were upstreamed as well.
+
+\begin{figure}
+    \includegraphics[width=\textwidth]{assets/preempt.jpg}
+    \caption{}
+    \label{}
+\end{figure}
+
+With the current stable version of 6.6-rt still not everything is upstreamed and patching the kernel sources is still required.
 
 \section{Rust Prerequisites}
 \label{sec:background:rust}
