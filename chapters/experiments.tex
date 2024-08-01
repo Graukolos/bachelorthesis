@@ -6,7 +6,7 @@
 \chapter{Experiments}
 \label{chap:experiments}
 
-In order to compare our different approaches, we measured the time an iteration of our control loop takes.
+In order to compare our different approaches, we measured the time it takes for an iteration of our control loop.
 This allows us to compare not only the speed of each version of the program but also the consistency in the iteration times.
 
 \section{Methodology}
@@ -49,16 +49,16 @@ The linux versions all run a common iteration function:
   }
 \end{lstlisting}
 
-Time measurement is done here through Rusts stdlib Instant and Duration types.
+Time measurement is done here via Rusts stdlib Instant and Duration types.
 On Linux these compile to the clock\_gettime syscall in order to get microsecond accurate time.
 Because the RaspberryPi 4 does not yet have a real-time clock like the Raspberry Pi 5,
 Linux uses the clock interrupts of a 1MHz oscillator to measure the time.
 The benchmarks are first run for 10000 iterations without measuring, in order to avoid any latency spikes because of cache misses in the real benchmark.
 The real benchmark is then run for 1000000 iterations while saving the measured time deltas to an array.
 To execute the benchmarks, the criterion framework for Rust was used as it allows easy configuration of the amount of samples,
-runs an unmeasured three-second warmup loop of the benchmark beforehand and automatically generates plots and statistics data from the results.
+runs an unmeasured three-second warmup loop of the benchmark beforehand, and automatically generates plots and statistics data from the results.
 
-For the isolated core version, we use the cset python program in order to easily manipulate the Linux kernels cpuset subsystem.
+For the isolated core version, we use the cset python program to easily manipulate the Linux kernels cpuset subsystem.
 This allows us with few commands to isolate one core from all running processes and run our program on it, without being disturbed by core local interrupts.
 Global interrupts such as spinlocks when running a syscall can, however, still halt our execution flow.
 
@@ -120,7 +120,7 @@ Step 5 is to actually install the files.
 In the end, reboot to load the new kernel.
 
 \subsection{Testing the bare-metal version}
-Benchmarking the bare-metal version is a bit more involved than the linux-based versions.
+Benchmarking the bare metal version is a bit more involved than the linux-based versions.
 For measuring times, Circle's CTimer::GetClockTicks64() is used. This in turn returns the number of ticks of the 1MHz oscillator on the Rpi.
 Analogously to the Linux versions, the loop is run for 10000 iterations before we start measuring.
 
@@ -200,8 +200,10 @@ Most important for our purposes are the average and worst-case times.
 
 To better visualize this and better understand the behavior of any outliers, we have depicted the iteration times both in a histogram and in the raw data points.
 The iteration-time graphs allow for a better understanding of the relative difference between a normal iteration and the outlier ones,
-but due to the amount of datapoints conceal how often or rare these outliers actually occur.
-In order to overcome this downside, we have the histogram with a logarithmic scale.
+but due to the amount of datapoints, conceal how often or rare these outliers actually occur.
+In order to overcome this downside, we have the histogram with a logarithmic scale.\\
+The histograms can be seen in Figure \ref{fig:experiments:bare-metal:hist} for the bare metal version, Figure \ref{fig:experiments:os-default:hist} for the unmodified Linux version, Figure \ref{fig:experiments:os-isolated:hist} for the isolated core version and Figure \ref{fig:experiments:os-rt:hist} for the PREEMPT-RT version.\\
+The iteration time graphs can be seen in Figure \ref{fig:experiments:bare-metal:times} for the bare metal version, Figure \ref{fig:experiments:os-default:times} for the unmodified Linux version, Figure \ref{fig:experiments:os-default:times} for the isolated core version, and Figure \ref{fig:experiments:os-rt:times} for the PREEMPT-RT version.
 
 \makeatletter
 \newcommand{\includesvggraphics}[2][\textwidth]{
@@ -210,7 +212,7 @@ In order to overcome this downside, we have the histogram with a logarithmic sca
 }
 \makeatother
 
-\begin{figure}
+\begin{figure}[H]
   \begin{center}
     \begin{minipage}{0.48\textwidth}
       \begin{center}
@@ -230,7 +232,7 @@ In order to overcome this downside, we have the histogram with a logarithmic sca
   \end{center}
 \end{figure}
 
-\begin{figure}
+\begin{figure}[H]
   \begin{center}
     \begin{minipage}{0.48\textwidth}
       \begin{center}
@@ -250,7 +252,7 @@ In order to overcome this downside, we have the histogram with a logarithmic sca
   \end{center}
 \end{figure}
 
-\begin{figure}
+\begin{figure}[H]
   \begin{center}
     \begin{minipage}{0.48\textwidth}
       \begin{center}
@@ -270,7 +272,7 @@ In order to overcome this downside, we have the histogram with a logarithmic sca
   \end{center}
 \end{figure}
 
-\begin{figure}
+\begin{figure}[H]
   \begin{center}
     \begin{minipage}{0.48\textwidth}
       \begin{center}
@@ -301,13 +303,13 @@ To answer this properly, we profiled a run of the default Linux version, the res
 From this we can see that most of the time (84.12\%) is spent setting the duty cycle, which in turn means that the context switching overhead is not the issue.
 If it were, we would see close to the same duration for SPI and obtain the system time, as we see for PWM.
 This can have one of two causes:\\
-The linux kernel PWM driver is very slow.
+The Linux kernel PWM driver is very slow.
 Or, the rppal implementation of set\_duty\_cycle() is not optimal,
 either because it does extra steps not needed for our case,
 or talks to the kernel in an inefficient way.
 Of these two the second one is more likely for two reasons,
 code in the Linux kernel gets significantly more exposure and testing than rppal and the Circle PWM source code states
-that it is heavily inspired by the linux implementation.
+that it is heavily inspired by the Linux implementation.
 If the reason is indeed that rppal could have been programmed differently for this task,
 a significant speedup could be achieved.
 Assuming the set\_duty\_cycle() was as fast as the SPI transfer,
@@ -315,7 +317,7 @@ which would be reasonable since the spi transfer has to write and read to memory
 the linux version times would come down to roughly 15us,
 putting it in a very comparable ballpark as the bare-metal version.
 
-\begin{figure}
+\begin{figure}[H]
   \begin{center}
     \includegraphics[width=\textwidth]{assets/os-default/flamegraph.png}
     \caption{A flamegraph for the default linux version, with times spent inside of each function}

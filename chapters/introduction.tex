@@ -23,7 +23,7 @@ We chose to use a Raspberry Pi, because it provides us with some advantages and 
 \label{sec:introduction:gpp}
 
 When compared to the FPGA approach used in CARL Single Board Computers (from now on abbreviated as SBCs) such as a Raspberry Pi are cheaper and easier to program.
-This comes at a cost however, typically FPGAs are faster at high speed IO operations, which is an important port of a Closed Loop Controller.
+This comes at a cost, however, typically FPGAs are faster at high speed IO operations, which is an important port of a Closed Loop Controller.
 Fortunately the Raspberry Pi 4 has special purpose hardware for SPI and PWM IO which should help us alleviate this disadvantage,
 while outperforming the FPGAs in general compute tasks due to the higher clock frequencies.
 
@@ -50,12 +50,12 @@ that claim to be able to replace C and C++ for various parts of the systems prog
 The controller implementation in this thesis will be written in Rust,
 as that gives us the opportunity to validate some of Rusts claims on its suitability for embedded programs and interoperability with existing SDKs.
 
-To cite the exact quotes we will be looking at in detail:\\
+To cite the exact quotes, we will be looking at in detail:\\
 "Interoperability - Integrate Rust into your existing C codebase or leverage an existing SDK to write a Rust application."\\
-"Portability - Write a library or driver once, and use it with a variety of systems, ranging from very small microcontrollers to powerful SBCs."\\
+"Portability - Write a library or driver once and use it with a variety of systems, ranging from very small microcontrollers to powerful SBCs."\\
 \cite{RustEmbeddedSite}
 
-In order to do that we will implement the controller twice.
+In order to do that, we will implement the controller twice.
 Once running bare-metal while using the Circle library for interacting with the hardware,
 and second while running on a standard linux kernel on the Raspberry Pi.
 This allows us to compare the effort of writing an embedded application in Rust to the effort

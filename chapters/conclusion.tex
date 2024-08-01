@@ -3,7 +3,7 @@
 \chapter{Conclusion}
 \label{chap:conclusion}
 
-We initially set out to create a flexible motor controller on a RaspberryPi,
+We initially set out to create a flexible motor controller on a Raspberry Pi
 with the idea that different control schemes could easily be implemented in software and tested.
 To reach this goal, we looked at several different approaches,
 both from a detailed look at the implementation as well as the resulting performance characteristics.
@@ -15,22 +15,22 @@ we examined the interaction of Rust with C/C++ libraries.
 The different versions we developed were:
 \begin{enumerate}
     \item A bare-metal version using the Circle C++ library to access peripherals
-    \item A version running on the standard linux kernel using the Rust native rppal library for peripheral access
-    \item A variant of the linux version that had one core reserved for it to avoid being interrupted or having to wait for a core to be available.
-    \item A second variant of the Linux version that exchanges the default linux kernel with one patched with a real-time patchset.
+    \item A version running on the standard Linux kernel using the Rust native rppal library for peripheral access
+    \item A variant of the Linux version that had one core reserved for it to avoid being interrupted or having to wait for a core to be available.
+    \item A second variant of the Linux version that exchanges the default Linux kernel with one patched with a real-time patchset.
 \end{enumerate}
 
 When testing these for performance, we found two main results.
 For one, the Linux-based versions all exhibited regular iteration time spikes, of up to 2.5 milliseconds,
 while the regular run time was more around 40 microseconds.
 In this behavior, the Linux-based versions did not differ significantly from each other,
-so for this workload our approaches at optimizing the thread allocation were unsuccessful.
+so for this workload, our approaches at optimizing the thread allocation were unsuccessful.
 Second, the bare metal version performed about 10 times faster than the Linux based versions,
 all while not having the latency spike problem.
 
 Regarding the usage of Rust, we found that most of the added complexity of adding another language is not in the language interaction itself,
-but rather in the surrounding tooling such as managing multiple compilers, linkers and build systems to all work together.
-This can be seen both as a positive and as a negative.
+but rather in the surrounding tooling such as managing multiple compilers, linkers, and build systems to all work together.
+This can be seen both as positive and as a negative.
 The positive side is that the language tools such as bindgen for generating the bindings to the C code are in good shape both from a usability and stability perspective,
 while the negative side is that the added build system complexity might deter people who are just trying to code the actual program.
 
