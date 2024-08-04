@@ -129,7 +129,7 @@ We need to either transmit the data over a connection such as ethernet, spi, i2c
 Since we are running bare-metal that means that we need a driver for one of these options.
 Because we are already using the Circle library for Spi and it provides simple access to a USB mass storage device with a FAT32 file system, we will be using it to save the results.
 
-The process for this is equivalent to how we already used the SPI and PWM drivers in the \nameref{chap:concept_and_implementation} chapter,
+The process for this is equivalent to how we already used the SPI and PWM drivers in the \nameref{chap:concept_and_implementation} (\ref{chap:concept_and_implementation}) chapter,
 so we will only skim over the most important parts.
 
 In our wrapper.hpp we need to include "circle/fs/fat/fatfs.h" and "circle/usb/usbhcidevice.h"
@@ -299,7 +299,7 @@ First, the difference between the bare-metal and linux versions.
 All of the linux-based versions have average execution times of an order of magnitude more than the bare-metal version,
 which leaves the question:
 Is this speed difference adequately explained by the Linux version having to switch the execution context to the kernel and back for the PWM and SPI kernel drivers?
-To answer this properly, we profiled a run of the default Linux version, the result can be seen in \ref{fig:experiments:flamegraph}.
+To answer this properly, we profiled a run of the default Linux version, the result can be seen in Figure \ref{fig:experiments:flamegraph}.
 From this we can see that most of the time (84.12\%) is spent setting the duty cycle, which in turn means that the context switching overhead is not the issue.
 If it were, we would see close to the same duration for SPI and obtain the system time, as we see for PWM.
 This can have one of two causes:\\

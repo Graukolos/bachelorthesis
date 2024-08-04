@@ -69,7 +69,7 @@ In order to enable them, we need to set dtparam=spi=on in /boot/firmware/config.
 
 \subsection{Getting the current position}
 
-In \nameref{sec:background:hardware:spi} and \nameref{sec:background:hardware:ic-mu} we have already seen how SPI and the position encoder that we use work.
+In the \nameref{sec:background:hardware:spi} (\ref{sec:background:hardware:spi}) and \nameref{sec:background:hardware:ic-mu} (\ref{sec:background:hardware:ic-mu}) sections we have already seen how SPI and the position encoder that we use work.
 This leaves us with the question of how to transmit the actual position data.
 The position transmission is initiated by the SPI master by sending the SDAD\_TRANSMISSION opcode.
 The IC-MU chip responds by echoing the opcode and appending the position.
@@ -91,7 +91,7 @@ For now, we will implement a simple PID controller that stays the same between t
 For this we decided on the pid-ctrl library to be used, as it is easy to use, works on bare metal, and supports differing time deltas.
 
 The process of including it is analogous to rppal.
-In fact in the \nameref{sec:concept_and_implementation:linux:rppal} chapter,
+In fact in the \nameref{sec:concept_and_implementation:linux:rppal} (\ref{sec:concept_and_implementation:linux:rppal}) chapter,
 we already included it in our build process and created an instance of the Pid type.
 So, all we need to do is to use it inside our main loop.
 
@@ -107,10 +107,10 @@ its simple boot process and access to low-level IO such as $I^2C$, SPI and GPIO 
 \subsection{HAL vs Circle}
 \label{sec:concept_and_implementation:bare-metal:hal}
 
-As we have seen in \nameref{sec:background:rust:embedded} the traditional way to program for a microcontroller in Rust
+As we have seen in the \nameref{sec:background:rust:embedded} (\ref{sec:background:rust:embedded}) section the traditional way to program for a microcontroller in Rust
 is to create a library for it that implements all the traits from the embedded-hal crate and a second library for the boot process.
 Doing that from scratch is a significant task that would exceed the scope of a bachelor thesis by quite a bit.
-However, in order to enable a better evaluation of Rust's suitability for embedded systems, we will demonstrate how such an implementation would look for the Gpio pins in \nameref{sec:concept_and_implementation:hal}.
+However, in order to enable a better evaluation of Rust's suitability for embedded systems, we will demonstrate how such an implementation would look for the Gpio pins in \nameref{sec:concept_and_implementation:hal} (\ref{sec:concept_and_implementation:hal}).
 For the actually functional bare-metal program, we will be using a different route.
 The Circle library is a C++ framework that provides bare-metal access to pretty much all of the Rpi's available hardware.
 That means not only Gpio, Spi, and I2c, but also the more complex subsystems, such as PCIe, USB, display outputs, and ethernet.
@@ -178,7 +178,7 @@ The first part of creating a bare metal controller is creating a binary that eve
 To produce a bootable rust binary we start from a clean project folder generated with cargo new.
 This clean project contains a Cargo.toml for the build system configuration and a src/main.rs with the actual code.
 
-First, we will add a .cargo/config.toml similar to what we saw in \nameref{sec:concept_and_implementation:bare-metal:cross}.
+First, we will add a .cargo/config.toml similar to what we saw in \nameref{sec:concept_and_implementation:bare-metal:cross} (\ref{sec:concept_and_implementation:bare-metal:cross}).
 \begin{lstlisting}
 [target.aarch64-unknown-none]
 linker = "aarch64-none-elf-ld"
@@ -378,7 +378,7 @@ Inside of the Circle source directory execute the following commands:
 \end{verbatim}
 
 To create a bootable binary from this, we need to create a suitable main.rs and .cargo/config.toml.
-Both are very similar to what we already saw in the \nameref{sec:concept_and_implementation:bare-metal:boot} chapter, so we will show only the differences here.
+Both are very similar to what we already saw in the \nameref{sec:concept_and_implementation:bare-metal:boot} (\ref{sec:concept_and_implementation:bare-metal:boot}) chapter, so we will show only the differences here.
 In the .cargo/config.toml we only change the compile flags to use Circle's linker script and .init section as the boot function.
 Circle's linker script is not as simplistic as ours, because it provides the necessary sections for static variables, constants, and a heap.
 The .init section is defined in the main Circle library and provides a bootup function that initializes the .bss and .data sections correctly by zeroing them and copying any constants to RAM.
@@ -399,7 +399,7 @@ pub unsafe extern "C" fn main() -> c_int {
 ...
 \end{lstlisting}
 
-Building the final binary works the same as in \nameref{sec:concept_and_implementation:bare-metal:boot}.
+Building the final binary works the same as in \nameref{sec:concept_and_implementation:bare-metal:boot} (\ref{sec:concept_and_implementation:bare-metal:boot}).
 This leaves only one final step to make the Raspberry Pi boot our Rust binary.
 As mentioned in the Rpi boot process we need the start4.elf, fixup4.dat, bcm2711-rpi-4-b.dtb and config.txt files on the final SD card or USB stick.
 These can be obtained from the official Raspberry Pi repository, but Circle can download them for us.
@@ -417,7 +417,7 @@ The alternate function mode we need can be found in the bcm2711 data sheet or th
 \lstinputlisting[language=rust,style=colouredRust,linerange={63-74,80-86}]{code/bare-metal/src/main.rs}
 
 The actual control loop is almost identical to the Linux version, with the only differences being the way to get the time and the different syntax of setting the PWM duty cycle.
-To measure the iteration-time deltas, we use Circle's CTimer class. The accuracy of this clock will be discussed in more detail in \nameref{sec:experiments:methodology}.
+To measure the iteration-time deltas, we use Circle's CTimer class. The accuracy of this clock will be discussed in more detail in the \nameref{sec:experiments:methodology} (\ref{sec:experiments:methodology}) section.
 Setting the PWM duty cycle works a bit differently in Circle than in rppal,
 in rppal we express the target value through a float in the range of 0 to 1,
 which aligns nicely with the output of the pid library.

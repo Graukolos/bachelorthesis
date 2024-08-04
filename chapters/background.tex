@@ -16,7 +16,7 @@ The reasons for this are that microcontrollers are often limited in their comput
 In addition to the computational overhead, many operating system scheduling strategies are optimized for throughput as opposed to reaction times.
 With the event-driven nature of many embedded systems, these higher and often irregular reaction times are not desirable.
 As a result of this, there is a specialized class of operating systems optimized for embedded systems.
-These so-called real-time operating systems (RTOS) minimize the space and computation overhead and employ special scheduling strategies to guarantee worst-case reaction times.
+These so-called real-time operating systems (RTOS) \cite{MarwedelPeter2021SS} minimize the space and computation overhead and employ special scheduling strategies to guarantee worst-case reaction times.
 
 While bare-metal systems have several advantages, as already mentioned, they are not without their disadvantages.
 Writing a bare metal program requires the programmer to be closely familiar with several additional aspects of the project:
@@ -40,7 +40,7 @@ All of these take additional time during a project and require more skilled prog
 \label{sec:background:bm_vs_os:rtos}
 
 Earlier we mentioned real-time operating systems, but what does real-time actually mean?
-Real-time systems are systems that guarantee the execution of a certain task before a certain time limit.
+Real-time systems are systems that guarantee the execution of a certain task before a certain time limit \cite[p. 208]{MarwedelPeter2021SS}.
 These can be divided into two groups, soft real-time systems and hard real-time systems.
 Hard real-time systems consider any violation of a time limit an unrecoverable failure.
 Soft real-time systems, on the other hand, just do their best to avoid exceeding time limits, but do not consider them catastrophic.
@@ -66,15 +66,15 @@ RTOS attempt to find a schedule that meets all time limits at runtime.
 
 The Linux kernel itself is not capable of real-time.
 This has two reasons:\\
-The available scheduling algorithms are not designed for this.
+The available scheduling algorithms are not designed for this.\\
 Many kernel functions are not preemptible, making it impossible to guarantee reaction times for high-priority tasks.
 
 Because of Linux's broad compatibility with hardware and familiarity for developers several projects adapt Linux to be real-time capable.
 \begin{itemize}
     \item RTLinux, which is end-of-life since 2011
-    \item RTAI (Real Time Application Interface), which hasn't seen an update for two years at the time of writing
-    \item Xenomai
-    \item PREEMPT-RT
+    \item RTAI (Real Time Application Interface), which hasn't seen an update for two years at the time of writing \cite{RTAI}
+    \item Xenomai \cite{Xenomai}
+    \item PREEMPT-RT \cite{PREEMPT-RT}
 \end{itemize}
 
 Of these, PREEMPT-RT is the most interesting one for us as we are going to use it later on.
@@ -88,7 +88,7 @@ The SCHED\_DEADLINE scheduler is up-streamed since kernel 3.14 and by version 6.
 \begin{figure}[H]
     \begin{center}
         \includegraphics[width=\textwidth]{assets/preempt.jpg}
-        \caption{Size off the PREEMPT-RT patchset over time. A decrease in size means code got up-streamed}
+        \caption{Size off the PREEMPT-RT patchset over time. A decrease in size means code got up-streamed \cite{PreemptSize}}
         \label{fig:preempt}
     \end{center}
 \end{figure}
@@ -104,16 +104,16 @@ while also being "memory safe", a term we will define more clearly shortly.
 Many modern languages use a garbage collector to manage memory on the heap,
 which is an additional thread that periodically checks all memory allocations to see if they are still used and frees them if they are not.
 This introduces an overhead, as the main execution path may be interrupted by the garbage collector and the analysis of the existing allocation takes execution time.
-Manually memory-management languages, on the other hand, suffer from the possibility of memory errors, such as double frees and use after frees.
+Manually memory-managed languages, on the other hand, suffer from the possibility of memory errors, such as double frees and use after frees.
 Typically manually memory-managed languages also allow for arbitrary memory access leading to data races, reading uninitialized memory, etc.
 Rust aims to be the best of both worlds, managing memory without a garbage collector, while also avoiding memory management and access errors.
 
 \subsection{Terminology}
 \label{sec:background:terminology}
 
-There are a few terms used in Rust that need only a short introduction.
-First, a crate is the equivalent of a package in Rust, it can be either a library or an executable.
-Second, traits are the equivalent of interfaces; we will use both terms interchangeably in this thesis.
+There are a few terms used in Rust that need only a short introduction.\\
+First, a crate is the equivalent of a package in Rust, it can be either a library or an executable.\\
+Second, traits are the equivalent of interfaces; we will use both terms interchangeably in this thesis.\\
 Third, cargo is the build manager for Rust, comparable to NPM, CMake, Meson, Maven.
 
 \subsection{Memory management by ownership}
@@ -179,7 +179,7 @@ where undefined behavior is defined as the following by the \cite{Rustonomicon}:
 
 This comes with a problem though, in order to prevent UB from occurring,
 some operations such as reading from an arbitrary memory address are not possible
-because the compiler cannot check if the would cause UB.
+because the compiler cannot check if they would cause UB.
 But in reality there are cases where it is both necessary and safe to read from specific memory addresses,
 most notably when talking to memory-mapped IO.
 
@@ -247,10 +247,10 @@ For communication with our position encoder the iC-MU, we use the SPI bus, and f
 \subsection{Raspberry Pi 4}
 \label{sec:background:hardware:pi}
 
-The Raspberry Pi 4 is a Single Board Computer (SBC) based on the Broadcom bcm2711 processor.
-It has 4 64bit arm cores and current models run at a frequency of 1.8GHz, while earlier production units ran at 1.5GHz.
+The Raspberry Pi 4 is a Single Board Computer (SBC) based on the Broadcom bcm2711 processor \cite{bcm2711}.
+It has four 64bit arm cores and current models run at a frequency of 1.8GHz, while earlier production units ran at 1.5GHz.
 The interesting features for us are mainly its IO capabilities.
-The onboard GPIO pins support simple on/off input and output, as well as 6 SPI buses, 4 I2C buses, a UART port and 2 PWM outputs.
+The onboard GPIO pins support simple on/off input and output, as well as six SPI buses, four I2C buses, a UART port and two PWM outputs.
 
 \subsection{SPI}
 \label{sec:background:hardware:spi}
@@ -297,7 +297,7 @@ The relation of CPOL and CPHA to the 4 modes can be seen in table \ref{tab:spi_m
 \label{sec:background:hardware:pwm}
 
 Since we are going to use PWM to control the motor driver, PWM should also receive an introduction.
-Pulse Width Modulation (PWM) is the technique of generating a digital signal where the ratio of on to off time is variable.
+Pulse Width Modulation (PWM) \cite[p. 187]{MarwedelPeter2021SS} is the technique of generating a digital signal where the ratio of on to off time is variable.
 This allows driving electric loads at only a percentage of their maximum power,
 for example, when dimming LEDs or running a motor at slower speeds.
 The signal can be fully described by its frequency or period, and duty cycle or on-time.
@@ -310,11 +310,11 @@ with the duty cycle being the percentage of time that the signal is on and the o
 
 The iC-MU position encoder is a chip that is mounted on a motor in combination with a magnetic band, to measure the current position of the motor,
 as well as the number of previous rotations.
-It is able to communicate this information through SPI, BiSS, SSI and ExtSSI.
+It is able to communicate this information through SPI, BiSS, SSI and ExtSSI \cite{IC-MU}.
 Since the only common protocol with our Raspberry Pi is SPI, we use that.
 The communication itself works by sending the chip an Opcode, optionally with some arguments such as a register address.
 The chip replies by echoing the Opcode and any arguments and, if applicable, attaching the return values.
-The different opcodes are one byte long and can be seen in \ref{tab:opcodes}
+The different opcodes are one byte long and can be seen in table \ref{tab:opcodes}
 
 \begin{table}[H]
     \begin{tabular}{|l|l|}
@@ -335,10 +335,10 @@ The communication protocol the iC-MU expects is read from its configuration EEPR
 Since all the default configuration values of the iC-MU are fine for us, we pulled the EEPROM data pin to ground.
 
 The only opcode we will use is the SDAD-transmission one, as it fetches the current position of the motor.
-The transmission process can be seen in \ref{fig:background:sdad}
+The transmission process can be seen in figure \ref{fig:background:sdad}
 
 \begin{figure}[H]
     \includegraphics[width=.8\textwidth]{assets/sdad-transmission.png}
-    \caption{The SDAD-transmission process, from a signal and byte point of view}
+    \caption{The SDAD-transmission process, from a signal and byte point of view \cite[p. 37]{IC-MU}}
     \label{fig:background:sdad}
 \end{figure}

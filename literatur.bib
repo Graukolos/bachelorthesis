@@ -80,9 +80,206 @@
   year         = {2015}
 }
 
-%rust in linux kernel
-%rust in windows kernel
-%rust only language for new projects in azure
-%us push for memory safe languages
-%crates.io package amount in general
-%crates.io package amount for no_std
+@misc{RTAI,
+  key          = {RTAI},
+  title        = {RTAI - Real Time Application Interface},
+  howpublished = {https://www.rtai.org},
+  note         = {Accessed on 1.8.2024},
+  year         = {2022}
+}
+
+@misc{Xenomai,
+  key          = {Xenomai},
+  title        = {Xenomai Real-time Linux},
+  howpublished = {https://xenomai.org},
+  note         = {Accessed on 1.8.2024},
+  year         = {2024}
+}
+
+@misc{PREEMPT-RT,
+  key          = {PREEMPT-RT},
+  title        = {Real-Time Linux},
+  howpublished = {https://wiki.linuxfoundation.org/realtime/start},
+  note         = {Accessed on 1.8.2024},
+  year         = {2024}
+}
+
+@misc{PreemptSize,
+  author       = {Michael Opdenacker},
+  howpublished = {https://www.linkedin.com/posts/michaelopdenacker\_here-is-an-update-of-our-diagram-following-activity-6983362119823994881-Z8V5},
+  title        = {RT patch set size},
+  year         = {2023},
+  note         = {Accessed on 1.8.2024}
+}
+
+@incollection{MarwedelPeter2021SS,
+  language  = {eng},
+  publisher = {Springer International Publishing AG},
+  title     = {System Software},
+  year      = {2021},
+  author    = {Marwedel, Peter},
+  address   = {Switzerland},
+  booktitle = {Embedded System Design},
+  isbn      = {303060909X}
+}
+
+@misc{Rustonomicon,
+  key          = {Rustonomicon},
+  title        = {The Rustonomicon - The Dark Arts of Unsafe Rust},
+  howpublished = {https://doc.rust-lang.org/nomicon/},
+  note         = {Accessed on 8.01.2024},
+  year         = {2024}
+}
+
+@manual{bcm2711,
+  title   = {BCM2711 ARM Peripherals},
+  author  = {{Raspberry Pi Ltd}},
+  year    = {2022},
+  version = {cfcff44-clean},
+  url     = {https://datasheets.raspberrypi.com/bcm2711/bcm2711-peripherals.pdf},
+  urldate = {2022-01-18}
+}
+
+@inproceedings{Rasp3,
+  author    = {Carvalho, Alan and Machado, Cláudio and Moraes, Fabiano},
+  booktitle = {2019 Latin American Robotics Symposium (LARS), 2019 Brazilian Symposium on Robotics (SBR) and 2019 Workshop on Robotics in Education (WRE)},
+  title     = {Raspberry Pi Performance Analysis in Real-Time Applications with the RT-Preempt Patch},
+  year      = {2019},
+  volume    = {},
+  number    = {},
+  pages     = {162-167},
+  keywords  = {Real-time systems;Linux;Kernel;Task analysis;Random access memory;Hardware;RT preempt patch;Embedded real time systems;Raspberry Pi in real time;Real time Linux},
+  doi       = {10.1109/LARS-SBR-WRE48964.2019.00036}
+}
+
+@article{Rasp4,
+  title   = {A Performance Evaluation of Embedded Multi-core Mixed-criticality System Based on PREEMPT\_RT Linux},
+  author  = {Yixiao Li and Yutaka Matsubara and Hiroaki Takada and Kenji Suzuki and Hideaki Murata},
+  journal = {Journal of Information Processing},
+  volume  = {31},
+  number  = { },
+  pages   = {78-87},
+  year    = {2023},
+  doi     = {10.2197/ipsjjip.31.78}
+}
+
+@inproceedings{Rasp5,
+  author    = {Dewit, Wannes and Paolillo, Antonio and Gossens, Jo¨el},
+  booktitle = {OSPERT 2024 18th annual workshop on Operating Systems Platforms for Embedded Real-Time applications},
+  pages     = {7-12},
+  title     = {A Preliminary Assessment of the real-time capabilities of Real-Time Linux on Raspberry Pi 5},
+  year      = {2024}
+}
+
+@misc{sharma2023rustembeddedsystemscurrent,
+  title         = {Rust for Embedded Systems: Current State, Challenges and Open Problems},
+  author        = {Ayushi Sharma and Shashank Sharma and Santiago Torres-Arias and Aravind Machiry},
+  year          = {2023},
+  eprint        = {2311.05063},
+  archiveprefix = {arXiv},
+  primaryclass  = {cs.CR},
+  url           = {https://arxiv.org/abs/2311.05063}
+}
+
+@inproceedings{theft,
+  author    = {Levy, Amit and Andersen, Michael P. and Campbell, Bradford and Culler, David and Dutta, Prabal and Ghena, Branden and Levis, Philip and Pannuto, Pat},
+  title     = {Ownership is theft: experiences building an embedded OS in rust},
+  year      = {2015},
+  isbn      = {9781450339421},
+  publisher = {Association for Computing Machinery},
+  address   = {New York, NY, USA},
+  url       = {https://doi.org/10.1145/2818302.2818306},
+  doi       = {10.1145/2818302.2818306},
+  abstract  = {Rust, a new systems programming language, provides compile-time memory safety checks to help eliminate runtime bugs that manifest from improper memory management. This feature is advantageous for operating system development, and especially for embedded OS development, where recovery and debugging are particularly challenging. However, embedded platforms are highly event-based, and Rust's memory safety mechanisms largely presume threads. In our experience developing an operating system for embedded systems in Rust, we have found that Rust's ownership model prevents otherwise safe resource sharing common in the embedded domain, conflicts with the reality of hardware resources, and hinders using closures for programming asynchronously. We describe these experiences and how they relate to memory safety as well as illustrate our workarounds that preserve the safety guarantees to the largest extent possible. In addition, we draw from our experience to propose a new language extension to Rust that would enable it to provide better memory safety tools for event-driven platforms.},
+  booktitle = {Proceedings of the 8th Workshop on Programming Languages and Operating Systems},
+  pages     = {21–26},
+  numpages  = {6},
+  keywords  = {rust, ownership, linear types, embedded operating systems},
+  location  = {Monterey, California},
+  series    = {PLOS '15}
+}
+
+@article{tock2,
+  author         = {Culic, Ioana and Vochescu, Alexandru and Radovici, Alexandru},
+  title          = {A Low-Latency Optimization of a Rust-Based Secure Operating System for Embedded Devices},
+  journal        = {Sensors},
+  volume         = {22},
+  year           = {2022},
+  number         = {22},
+  article-number = {8700},
+  url            = {https://www.mdpi.com/1424-8220/22/22/8700},
+  pubmedid       = {36433297},
+  issn           = {1424-8220},
+  abstract       = {Critical systems such as drone control or power grid control applications rely on embedded devices capable of a real-time response. While much research and advancements have been made to implement low-latency and real-time characteristics, the security aspect has been left aside. All current real-time operating systems available for industrial embedded devices are implemented in the C programming language, which makes them prone to memory safety issues. As a response to this, Tock, an innovative secure operating system for embedded devices written completely in Rust, has recently appeared. The only downside of Tock is that it lacks the low-latency real-time component. Therefore, the purpose of this research is to leverage the extended Berkeley Packet Filter technology used for efficient network traffic processing and to add the low-latency capability to Tock. The result is a secure low-latency operating system for embedded devices and microcontrollers capable of handling interrupts at latencies as low as 60 µs.},
+  doi            = {10.3390/s22228700}
+}
+
+@inproceedings{tock,
+  title          = {Multiprogramming a 64kB Computer Safely and Efficiently},
+  booktitle      = {Proceedings of the 26th Symposium on Operating Systems Principles},
+  series         = {SOSP'17},
+  year           = {2017},
+  month          = {10},
+  isbn           = {978-1-4503-5085-3},
+  location       = {Shanghai, China},
+  pages          = {234--251},
+  numpages       = {18},
+  url            = {http://doi.acm.org/10.1145/3132747.3132786},
+  doi            = {10.1145/3132747.3132786},
+  acmid          = {3132786},
+  publisher      = {ACM},
+  address        = {New York, NY, USA},
+  conference-url = {https://www.sigops.org/sosp/sosp17/},
+  author         = {Levy, Amit and Campbell, Bradford and Ghena, Branden and Giffin, Daniel B. and Pannuto, Pat and Dutta, Prabal and Levis, Philip}
+}
+
+@inproceedings{tock3,
+  title          = {The Case for Writing a Kernel in Rust},
+  booktitle      = {Proceedings of the 8th Asia-Pacific Workshop on Systems},
+  series         = {APSys '17},
+  year           = {2017},
+  month          = {9},
+  isbn           = {978-1-4503-5197-3},
+  location       = {Mumbai, India},
+  pages          = {1:1--1:7},
+  articleno      = {1},
+  numpages       = {7},
+  url            = {http://doi.acm.org/10.1145/3124680.3124717},
+  doi            = {10.1145/3124680.3124717},
+  acmid          = {3124717},
+  publisher      = {ACM},
+  address        = {New York, NY, USA},
+  conference-url = {https://www.cse.iitb.ac.in/~apsys2017/},
+  author         = {Levy, Amit and Campbell, Bradford and Ghena, Branden and Pannuto, Pat and Dutta, Prabal and Levis, Philip}
+}
+
+@inproceedings{tock4,
+  author    = {Ayers, Hudson and Dutta, Prabal and Levis, Philip and Levy, Amit and Pannuto, Pat and Van Why, Johnathan and Watson, Jean-Luc},
+  title     = {Tiered Trust for Useful Embedded Systems Security},
+  year      = {2022},
+  isbn      = {9781450392556},
+  publisher = {Association for Computing Machinery},
+  address   = {New York, NY, USA},
+  url       = {https://doi.org/10.1145/3517208.3523752},
+  doi       = {10.1145/3517208.3523752},
+  booktitle = {Proceedings of the 15th European Workshop on Systems Security},
+  pages     = {15–21},
+  numpages  = {7},
+  keywords  = {security, embedded systems, operating systems, IoT},
+  location  = {Rennes, France},
+  series    = {EuroSec '22}
+}
+
+@article{computers10050064,
+  author         = {Adam, George K.},
+  title          = {Real-Time Performance and Response Latency Measurements of Linux Kernels on Single-Board Computers},
+  journal        = {Computers},
+  volume         = {10},
+  year           = {2021},
+  number         = {5},
+  article-number = {64},
+  url            = {https://www.mdpi.com/2073-431X/10/5/64},
+  issn           = {2073-431X},
+  abstract       = {This research performs real-time measurements of Linux kernels with real-time support provided by the PREEMPT_RT patch on embedded development devices such as BeagleBoard and Raspberry Pi. The experimental measurements of the Linux real-time performance on these devices are based on real-time software modules developed specifically for the purposes of this research. Taking in consideration the constraints of the specific hardware platforms under investigation, new measurements software was developed. The measurement algorithms are designed upon response and periodic task models. Measurements investigate latencies of real-time applications at user and kernel space. An outcome of this research is that the proposed performance measurements approach and evaluation methodology could be applied and deployed on other Linux-based boards and platforms. Furthermore, the results demonstrate that the PREEMPT_RT patch overall improves the Linux kernel real-time performance compared to the standard one. The reduced worst-case latencies on such devices running Linux with real-time support could make them potentially more suitable for real-time applications as long as a latency value of about 160 μs, as an upper bound, is an acceptable safety margin.},
+  doi            = {10.3390/computers10050064}
+}
