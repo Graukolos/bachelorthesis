@@ -16,6 +16,7 @@ In order to make the benchmarks as comparable as possible, we set a few invarian
 \begin{itemize}
   \item Each of the benchmarks is run on the exact same RaspberryPi 4B.
   \item The Pi runs at the stock core frequency of 1800MHz.
+  \item The SPI Bus runs at 20MHz, which is the maximum the iC-MU supports.
   \item The linux versions run RaspberryPi OS, a derivative of Debian Linux with the stock configuration.
   \item The kernel version is 6.1.73 for the stock and isolated core versions.
   \item The realtime version runs on 6.1.73-rt which was compiled prior on the RaspberryPi.
@@ -212,7 +213,7 @@ The iteration time graphs can be seen in Figure \ref{fig:experiments:bare-metal:
 }
 \makeatother
 
-\begin{figure}[H]
+\begin{figure}[h]
   \begin{center}
     \begin{minipage}{0.48\textwidth}
       \begin{center}
@@ -232,7 +233,15 @@ The iteration time graphs can be seen in Figure \ref{fig:experiments:bare-metal:
   \end{center}
 \end{figure}
 
-\begin{figure}[H]
+The bare-metal version is the first one we will look at in more detail.
+The first observation from the graphs \ref{fig:experiments:bare-metal:hist} and \ref{fig:experiments:bare-metal:times} is that the iteration time values are integer values.
+The reason for this is the earlier discussed 1MHz oscillator on the Raspberry Pi, which only allows us to count full microseconds.
+With the bare-metal version we are close to the limit of making useful time measurements on the Pi.
+The second observation is the consistency of this version.
+As can be seen in the histogram, in $99\%$ of the cases the iteration time is four or five microseconds and $99.9\%$ is under seven microseconds.
+This is also reflected in the standard deviation of the bare-metal version, which is the lowest of all even when adjusted for the mean.
+
+\begin{figure}[h]
   \begin{center}
     \begin{minipage}{0.48\textwidth}
       \begin{center}
@@ -252,7 +261,17 @@ The iteration time graphs can be seen in Figure \ref{fig:experiments:bare-metal:
   \end{center}
 \end{figure}
 
-\begin{figure}[H]
+With the first linux version we also see drastic differences compared to the bare-metal version.
+The quantization problem from the bare-metal version is gone, which can be nicely seen in Figure \ref{fig:experiments:os-default:times}, but this is due to the generally higher runtimes.
+The average iteration times are about 40.38us, which is about ten times higher than in the bare-metal version, with its 4.4us.
+Similar to the bare-metal version, iteration the average iteration times again make up about $99\%$ or the measured times.
+The worst-case latencies got disproportionately bigger,
+in the bare-metal version they were roughly double the average iteration time with seven vs four microseconds,
+here they are over 20 times higher with 876 vs 40 microseconds.
+Both higher average and worst-case times we're expected when comparing a bare-metal and linux version,
+the disproportionately higher increase in worst-case latencies however is undesireable.
+
+\begin{figure}[h]
   \begin{center}
     \begin{minipage}{0.48\textwidth}
       \begin{center}
@@ -272,7 +291,17 @@ The iteration time graphs can be seen in Figure \ref{fig:experiments:bare-metal:
   \end{center}
 \end{figure}
 
-\begin{figure}[H]
+The goal of the isolated core and realtime linux versions was to reduce the expected impact linux had on the worst-case times.
+In light of that goal, the most important metric are the worst-case latencies.
+When looking at the raw numbers,
+the isolated core with 2.2ms and the realtime version with 2.5ms are significantly worse than the standard linux version with its 876us.
+There is however an important detail that gets lost in looking only at the worst value.
+When comparing the iteration time graphs in figure \ref{fig:experiments:os-default:times}, figure \ref{fig:experiments:os-isolated:times} and figure \ref{fig:experiments:os-rt:times},
+we can see that these extreme latencies only occur a handful of times, five times for the isolated core version and two times for the realtime version.
+This causes both graphs to be more compressed, hiding the fact that the isolated-core version slightly outperforms the standard linux version.
+For the realtime version this does the exact opposite, hiding that even the sub 1ms spikes occur roughly 100 times more often than in both other linux versions.
+
+\begin{figure}[h]
   \begin{center}
     \begin{minipage}{0.48\textwidth}
       \begin{center}
@@ -330,6 +359,13 @@ The goal of reducing the worst-case latencies on Linux has failed.
 Every one of the Linux versions has regular lag spikes to more than an order of magnitude higher than the average iteration time.
 The isolated core and real-time versions that we hoped would reduce this behavior show very similar behavior as the stock version for iteration times under 1ms,
 but additionally have rare spikes up in the 2-2.5ms region.
+These spikes are a major problem, because when implementing a motor controller on top, the possible high reaction times result in several problems:
+From a safety perspective, when hitting an obstacle, such as possibly a human, we want the motor to slow down,
+but with these spikes the motor could be using its full force on an obstacle for up to 2.5ms.
+The second problem is accuracy, in the \nameref{chap:introduction} chapter we discussed that part of the job of a a controller is to prevent large overshoot and oscillation,
+both of which become more difficult with higher reaction times.
+This is especially important for the intended target application of our motor controller in the CARL \cite[]{CARL} successor,
+as balancing a bipedal robot is especially demanding on accuracy.
 
 With both of these results in mind, it is safe to say that the bare metal version is the one more suited for the target application,
 as regular reaction time spikes of almost a microsecond are just not acceptable and the lower average iteration times are preferable.

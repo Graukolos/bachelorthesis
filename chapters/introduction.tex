@@ -6,6 +6,16 @@
 \section{Closed Loop Control}
 \label{sec:introduction:clc}
 
+When addressing motors in a robot there is the challenge of how to control it.
+The reason why this is a problem is simple;
+The motor itself is a simple device that only reacts to strength and direction of electrical current.
+But the demands on the motor by the robot are significantly more complex:\\
+Often the motor is supposed to be in a certain position, move with a certain speed, not exceed a maximum force, reach a certain position without overshooting, etc..
+To complicate this even more there are different kinds of electrical motors, that require different input signals.
+So, to serve the role of translating the desired state into electrical signals to the motor, the role of motor controllers exists.
+These can be specialized pieces of hardware or software running on general purpose hardware with the necessary IO capabilities.
+In order to answer the question how this translation works we need to turn to systems theory from electrical engineering.
+
 Whenever you have a stateful system there are two ways of controlling it.
 In Open Loop Control only the should-be signal influences the output value.
 In Closed Loop or Feedback Control the output is composed of the should-be value and a feedback signal that measures the actual state of the system.
