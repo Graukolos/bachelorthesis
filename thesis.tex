@@ -35,12 +35,18 @@
 
 \RRLABabstract{Abstract}{
     \section*{English Version}
-    We present a flexible motor controller architecture on a RaspberryPi.
-    The goals for this implementation are an easily interchangeable control algorithm and high performance.
-    We discuss several different approaches to achieve our goals: One running bare metal without an operating system, and another one on top of the linux kernel.
-    For the linux kernel version we explore multiple different ways on optimizing the execution times.
-    All of these will be written in the Rust programming language, a modern systems programming language with potential in the embedded world.
-    This allows for an detailed analysis of Rust's intercompatibility with C.
+    This thesis presents a flexible motor controller architecture implmented on a Raspberry Pi,
+    with a focus on achieving both high performance and modularity in control algorithm choice.
+    Two primary approaches are explored:
+    a bare-metal implementation without an operating system, and a Linux kernel-based solution.
+    For the Linux-based approach,
+    two optimization strategies are investigated to minimize execution times and enhance system responsiveness.
+    
+    All implementations are developed using the Rust programming language,
+    a modern systems language that shows promise in embedded systems due to its safety features and performance capabilities.
+    Special focus is given to the intercompatibility of Rust and C++, which is critical to the architecture of the bare-metal version.
+    The performance of the implementations is compared by measuring the iteration times of the control loop,
+    finding that the bare-metal version is in most cases better suited to this application.
 
     \section*{German Version}
     Wir stellen eine auf einem Raspberry Pi implementierte Motorsteurung vor.
