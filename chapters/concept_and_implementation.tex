@@ -409,8 +409,8 @@ To download them through Circle, call make in the circle/boot directory.
 \label{sec:concept_and_implementation:bare-metal:implementation}
 
 With all the pieces in place, we can write the actual application.
-Similarly to the Linux version, we start by setting up Spi and Pwm and afterwards start the infinite control loop.
-To setup Spi and Pwm, we use the C++ constructors, which are translated by bindgen into the ClassName::new() functions.
+Similarly to the Linux version, we start by setting up Spi and PWM and afterwards start the infinite control loop.
+To setup Spi and PWM, we use the C++ constructors, which are translated by bindgen into the ClassName::new() functions.
 In addition, we need to set pin 18 in alternate function mode 5, so that it is wired up to the PWM signal from the PWM controller.
 The alternate function mode we need can be found in the bcm2711 data sheet or the Circle documentation.
 
@@ -618,7 +618,7 @@ If we are on another core, we halt execution by waiting for an interrupt.
 In total, this Rust native approach would allow an application to be written with minimal effort,
 including the BSP as a dependency in cargo would take care of all the linking intricacies,
 and the actual code would be almost the same as in the Linux based version.
-Because Spi and Pwm are abstracted behind the embedded-hal traits, one could even use a shared code base with a Linux version for rapid development
+Because Spi and PWM are abstracted behind the embedded-hal traits, one could even use a shared code base with a Linux version for rapid development
 and an embedded version for the final version.
 But implementing this fully would require a further and extremely detailed understanding of the inner working of the bcm2711,
 how to operate the DMAs to communicate with the SPI controller, the SPI controller itself, and the PWM controller.
