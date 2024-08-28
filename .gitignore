@@ -2,7 +2,6 @@
 *.idx
 *.log
 *.out
-*.pdf
 *.toc
 *.bbl
 *.blg
